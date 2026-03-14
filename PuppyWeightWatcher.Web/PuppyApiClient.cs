@@ -115,4 +115,52 @@ public class PuppyApiClient(HttpClient httpClient)
         var response = await httpClient.PutAsync($"/puppies/{puppyId}/photos/{photoId}/profile", null, cancellationToken);
         return response.IsSuccessStatusCode;
     }
+
+    // Litter operations
+    public async Task<List<Litter>> GetAllLittersAsync(CancellationToken cancellationToken = default)
+    {
+        return await httpClient.GetFromJsonAsync<List<Litter>>("/litters", cancellationToken) ?? new List<Litter>();
+    }
+
+    public async Task<Litter?> GetLitterByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await httpClient.GetFromJsonAsync<Litter>($"/litters/{id}", cancellationToken);
+    }
+
+    public async Task<Litter?> CreateLitterAsync(Litter litter, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync("/litters", litter, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Litter>(cancellationToken);
+    }
+
+    public async Task<Litter?> UpdateLitterAsync(Guid id, Litter litter, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PutAsJsonAsync($"/litters/{id}", litter, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Litter>(cancellationToken);
+    }
+
+    public async Task<bool> DeleteLitterAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.DeleteAsync($"/litters/{id}", cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<List<Puppy>> GetPuppiesByLitterIdAsync(Guid litterId, CancellationToken cancellationToken = default)
+    {
+        return await httpClient.GetFromJsonAsync<List<Puppy>>($"/litters/{litterId}/puppies", cancellationToken) ?? new List<Puppy>();
+    }
+
+    public async Task<bool> AddPuppyToLitterAsync(Guid litterId, Guid puppyId, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PutAsync($"/litters/{litterId}/puppies/{puppyId}", null, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RemovePuppyFromLitterAsync(Guid puppyId, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.DeleteAsync($"/litters/puppies/{puppyId}", cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
 }

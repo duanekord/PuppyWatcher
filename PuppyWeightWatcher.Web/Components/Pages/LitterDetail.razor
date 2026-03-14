@@ -1,0 +1,194 @@
+@page "/litters/{LitterId:guid}"
+@using PuppyWeightWatcher.Shared.Models
+@inject PuppyApiClient PuppyApi
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Litter Details</PageTitle>
+
+@if (loading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (litter == null)
+{
+    <div class="alert alert-danger">
+        <p>Litter not found.</p>
+    </div>
+    <button class="btn btn-secondary" @onclick="GoBack">Go Back</button>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>@litter.Name</h1>
+        <button class="btn btn-secondary" @onclick="GoBack">Back to Litters</button>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Litter Information</h5>
+                    <button class="btn btn-sm btn-light" @onclick="EditLitter">Edit</button>
+                </div>
+                <div class="card-body">
+                    <p><strong>Date of Birth:</strong> @litter.DateOfBirth.ToString("MM/dd/yyyy")</p>
+                    <p><strong>Breed:</strong> @(string.IsNullOrEmpty(litter.Breed) ? "Unknown" : litter.Breed)</p>
+                    <p><strong>Puppies in Litter:</strong> @litterPuppies.Count</p>
+                    @if (!string.IsNullOrEmpty(litter.Notes))
+                    {
+                        <p><strong>Notes:</strong> @litter.Notes</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Puppies in this Litter</h5>
+            <div class="d-flex gap-2">
+                <button class="btn btn-light btn-sm" @onclick="ToggleAddExisting">
+                    @(showAddExisting ? "Cancel" : "Add Existing Puppy")
+                </button>
+                <button class="btn btn-light btn-sm" @onclick="AddNewPuppyToLitter">
+                    Add New Puppy
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            @if (showAddExisting)
+            {
+                <div class="mb-3 p-3 bg-light rounded">
+                    <h6>Add Existing Puppy to Litter</h6>
+                    <p class="text-muted"><small>Selecting a puppy will update its date of birth and breed to match this litter.</small></p>
+                    @if (availablePuppies.Any())
+                    {
+                        <div class="row">
+                            @foreach (var puppy in availablePuppies)
+                            {
+                                <div class="col-md-4 mb-2">
+                                    <button class="btn btn-outline-primary w-100" @onclick="() => AddExistingPuppy(puppy.Id)">
+                                        @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No unassigned puppies available.</p>
+                    }
+                </div>
+            }
+
+            @if (!litterPuppies.Any())
+            {
+                <p class="text-muted">No puppies in this litter yet.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Collar Color</th>
+                                <th>Name</th>
+                                <th>Gender</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var puppy in litterPuppies)
+                            {
+                                <tr>
+                                    <td>@puppy.CollarColor</td>
+                                    <td>@(string.IsNullOrEmpty(puppy.Name) ? "Not named" : puppy.Name)</td>
+                                    <td>@(string.IsNullOrEmpty(puppy.Gender) ? "Unknown" : puppy.Gender)</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary me-1" @onclick="() => ViewPuppy(puppy.Id)">
+                                            View
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RemovePuppy(puppy.Id)">
+                                            Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid LitterId { get; set; }
+
+    private Litter? litter;
+    private List<Puppy> litterPuppies = new();
+    private List<Puppy> availablePuppies = new();
+    private bool loading = true;
+    private bool showAddExisting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        litter = await PuppyApi.GetLitterByIdAsync(LitterId);
+        litterPuppies = await PuppyApi.GetPuppiesByLitterIdAsync(LitterId);
+        loading = false;
+    }
+
+    private async Task ToggleAddExisting()
+    {
+        showAddExisting = !showAddExisting;
+        if (showAddExisting)
+            await LoadAvailablePuppies();
+    }
+
+    private async Task LoadAvailablePuppies()
+    {
+        var allPuppies = await PuppyApi.GetAllPuppiesAsync();
+        availablePuppies = allPuppies.Where(p => p.LitterId == null).ToList();
+    }
+
+    private async Task AddExistingPuppy(Guid puppyId)
+    {
+        await PuppyApi.AddPuppyToLitterAsync(LitterId, puppyId);
+        showAddExisting = false;
+        await LoadData();
+    }
+
+    private async Task RemovePuppy(Guid puppyId)
+    {
+        await PuppyApi.RemovePuppyFromLitterAsync(puppyId);
+        await LoadData();
+    }
+
+    private void AddNewPuppyToLitter()
+    {
+        Navigation.NavigateTo($"/puppies/add?litterId={LitterId}");
+    }
+
+    private void ViewPuppy(Guid puppyId)
+    {
+        Navigation.NavigateTo($"/puppies/{puppyId}");
+    }
+
+    private void EditLitter()
+    {
+        Navigation.NavigateTo($"/litters/edit/{LitterId}");
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/litters");
+    }
+}

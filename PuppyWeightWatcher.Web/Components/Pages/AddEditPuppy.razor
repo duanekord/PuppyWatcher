@@ -116,10 +116,14 @@ else
     [Parameter]
     public Guid? PuppyId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "litterId")]
+    public Guid? LitterId { get; set; }
+
     private bool IsEditMode => PuppyId.HasValue;
     private bool loading = false;
     private bool saving = false;
     private string errorMessage = string.Empty;
+    private string? litterName;
 
     private string collarColor = string.Empty;
     private string name = string.Empty;
@@ -153,6 +157,16 @@ else
             }
             loading = false;
         }
+        else if (LitterId.HasValue)
+        {
+            var litter = await PuppyApi.GetLitterByIdAsync(LitterId.Value);
+            if (litter != null)
+            {
+                litterName = litter.Name;
+                dateOfBirth = litter.DateOfBirth;
+                breed = litter.Breed ?? string.Empty;
+            }
+        }
     }
 
     private async Task SavePuppy()
@@ -181,7 +195,8 @@ else
                 Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim(),
                 DateOfBirth = dateOfBirth,
                 Breed = string.IsNullOrWhiteSpace(breed) ? null : breed.Trim(),
-                Gender = string.IsNullOrWhiteSpace(gender) ? null : gender
+                Gender = string.IsNullOrWhiteSpace(gender) ? null : gender,
+                LitterId = LitterId
             };
 
             if (IsEditMode)
@@ -194,7 +209,10 @@ else
                 var created = await PuppyApi.CreatePuppyAsync(puppy);
                 if (created != null)
                 {
-                    Navigation.NavigateTo($"/puppies/{created.Id}");
+                    if (LitterId.HasValue)
+                        Navigation.NavigateTo($"/litters/{LitterId.Value}");
+                    else
+                        Navigation.NavigateTo($"/puppies/{created.Id}");
                 }
                 else
                 {
@@ -217,6 +235,10 @@ else
         if (IsEditMode)
         {
             Navigation.NavigateTo($"/puppies/{PuppyId!.Value}");
+        }
+        else if (LitterId.HasValue)
+        {
+            Navigation.NavigateTo($"/litters/{LitterId.Value}");
         }
         else
         {

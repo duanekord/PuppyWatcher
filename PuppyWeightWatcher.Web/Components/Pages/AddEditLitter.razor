@@ -1,0 +1,154 @@
+@page "/litters/add"
+@page "/litters/edit/{LitterId:guid}"
+@using PuppyWeightWatcher.Shared.Models
+@inject PuppyApiClient PuppyApi
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEditMode ? "Edit Litter" : "Add New Litter")</PageTitle>
+
+<h1>@(IsEditMode ? "Edit Litter" : "Add New Litter")</h1>
+
+@if (loading)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Litter Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="name" placeholder="e.g. Spring 2026 Litter" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" @bind="dateOfBirth" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Breed</label>
+                        <input type="text" class="form-control" @bind="breed" placeholder="Optional" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" @bind="notes" rows="3" placeholder="Optional notes about this litter..."></textarea>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" @onclick="SaveLitter" disabled="@saving">
+                            @if (saving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            }
+                            @(IsEditMode ? "Update Litter" : "Create Litter")
+                        </button>
+                        <button class="btn btn-secondary" @onclick="Cancel" disabled="@saving">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid? LitterId { get; set; }
+
+    private bool IsEditMode => LitterId.HasValue;
+    private bool loading = false;
+    private bool saving = false;
+    private string errorMessage = string.Empty;
+
+    private string name = string.Empty;
+    private DateTime dateOfBirth = DateTime.Today;
+    private string breed = string.Empty;
+    private string notes = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEditMode)
+        {
+            loading = true;
+            var litter = await PuppyApi.GetLitterByIdAsync(LitterId!.Value);
+            if (litter != null)
+            {
+                name = litter.Name;
+                dateOfBirth = litter.DateOfBirth;
+                breed = litter.Breed ?? string.Empty;
+                notes = litter.Notes ?? string.Empty;
+            }
+            else
+            {
+                errorMessage = "Litter not found.";
+            }
+            loading = false;
+        }
+    }
+
+    private async Task SaveLitter()
+    {
+        errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            errorMessage = "Litter name is required.";
+            return;
+        }
+
+        if (dateOfBirth > DateTime.Today)
+        {
+            errorMessage = "Date of birth cannot be in the future.";
+            return;
+        }
+
+        saving = true;
+
+        try
+        {
+            var litter = new Litter
+            {
+                Name = name.Trim(),
+                DateOfBirth = dateOfBirth,
+                Breed = string.IsNullOrWhiteSpace(breed) ? null : breed.Trim(),
+                Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim()
+            };
+
+            if (IsEditMode)
+            {
+                await PuppyApi.UpdateLitterAsync(LitterId!.Value, litter);
+                Navigation.NavigateTo($"/litters/{LitterId.Value}");
+            }
+            else
+            {
+                var created = await PuppyApi.CreateLitterAsync(litter);
+                Navigation.NavigateTo($"/litters/{created?.Id}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving litter: {ex.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        if (IsEditMode)
+            Navigation.NavigateTo($"/litters/{LitterId}");
+        else
+            Navigation.NavigateTo("/litters");
+    }
+}

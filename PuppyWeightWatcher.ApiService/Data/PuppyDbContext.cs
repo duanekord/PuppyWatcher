@@ -6,9 +6,10 @@ namespace PuppyWeightWatcher.ApiService.Data;
 public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContext(options)
 {
     public DbSet<Puppy> Puppies => Set<Puppy>();
+    public DbSet<Litter> Litters => Set<Litter>();
     public DbSet<WeightEntry> WeightEntries => Set<WeightEntry>();
     public DbSet<ShotRecord> ShotRecords => Set<ShotRecord>();
-    public DbSet<PuppyPhoto> Photos => Set<PuppyPhoto>();
+    public DbSet<PuppyPhoto> PuppyPhotos => Set<PuppyPhoto>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +37,22 @@ public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContex
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.Ignore(p => p.ShotRecords);
+            entity.HasIndex(p => p.LitterId);
+        });
+
+        modelBuilder.Entity<Litter>(entity =>
+        {
+            entity.HasKey(l => l.Id);
+            entity.Property(l => l.Name).IsRequired().HasMaxLength(100);
+            entity.Property(l => l.Breed).HasMaxLength(100);
+            entity.Property(l => l.Notes).HasMaxLength(500);
+
+            entity.HasMany<Puppy>()
+                .WithOne()
+                .HasForeignKey(p => p.LitterId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Ignore(l => l.PuppyCount);
         });
 
         modelBuilder.Entity<WeightEntry>(entity =>

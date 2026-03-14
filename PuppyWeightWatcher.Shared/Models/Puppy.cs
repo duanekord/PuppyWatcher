@@ -8,6 +8,7 @@ public class Puppy
     public DateTime DateOfBirth { get; set; }
     public string? Breed { get; set; }
     public string? Gender { get; set; }
+    public Guid? LitterId { get; set; }
     public List<ShotRecord> ShotRecords { get; set; } = new();
     public Guid? ProfilePhotoId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

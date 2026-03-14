@@ -31,11 +31,11 @@ builder.Services.AddScoped<IPuppyService, PuppyService>();
 
 var app = builder.Build();
 
-// Ensure the database is created on startup
+// Apply pending EF Core migrations on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PuppyDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    await db.Database.MigrateAsync();
 }
 
 // Configure the HTTP request pipeline.
@@ -214,6 +214,63 @@ app.MapPut("/puppies/{puppyId:guid}/photos/{photoId:guid}/profile", async (Guid 
     return result ? Results.Ok() : Results.NotFound();
 })
 .WithName("SetProfilePhoto");
+
+// Litter endpoints
+app.MapGet("/litters", async (IPuppyService service) =>
+{
+    var litters = await service.GetAllLittersAsync();
+    return Results.Ok(litters);
+})
+.WithName("GetAllLitters");
+
+app.MapGet("/litters/{id:guid}", async (Guid id, IPuppyService service) =>
+{
+    var litter = await service.GetLitterByIdAsync(id);
+    return litter != null ? Results.Ok(litter) : Results.NotFound();
+})
+.WithName("GetLitterById");
+
+app.MapPost("/litters", async (Litter litter, IPuppyService service) =>
+{
+    var created = await service.CreateLitterAsync(litter);
+    return Results.Created($"/litters/{created.Id}", created);
+})
+.WithName("CreateLitter");
+
+app.MapPut("/litters/{id:guid}", async (Guid id, Litter litter, IPuppyService service) =>
+{
+    var updated = await service.UpdateLitterAsync(id, litter);
+    return updated != null ? Results.Ok(updated) : Results.NotFound();
+})
+.WithName("UpdateLitter");
+
+app.MapDelete("/litters/{id:guid}", async (Guid id, IPuppyService service) =>
+{
+    var deleted = await service.DeleteLitterAsync(id);
+    return deleted ? Results.NoContent() : Results.NotFound();
+})
+.WithName("DeleteLitter");
+
+app.MapGet("/litters/{litterId:guid}/puppies", async (Guid litterId, IPuppyService service) =>
+{
+    var puppies = await service.GetPuppiesByLitterIdAsync(litterId);
+    return Results.Ok(puppies);
+})
+.WithName("GetPuppiesByLitter");
+
+app.MapPut("/litters/{litterId:guid}/puppies/{puppyId:guid}", async (Guid litterId, Guid puppyId, IPuppyService service) =>
+{
+    var result = await service.AddPuppyToLitterAsync(litterId, puppyId);
+    return result ? Results.Ok() : Results.NotFound();
+})
+.WithName("AddPuppyToLitter");
+
+app.MapDelete("/litters/puppies/{puppyId:guid}", async (Guid puppyId, IPuppyService service) =>
+{
+    var result = await service.RemovePuppyFromLitterAsync(puppyId);
+    return result ? Results.Ok() : Results.NotFound();
+})
+.WithName("RemovePuppyFromLitter");
 
 app.MapDefaultEndpoints();
 

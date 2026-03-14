@@ -39,6 +39,7 @@ else
                     <p><strong>Gender:</strong> @(string.IsNullOrEmpty(puppy.Gender) ? "Unknown" : puppy.Gender)</p>
                     <p><strong>Date of Birth:</strong> @puppy.DateOfBirth.ToString("MM/dd/yyyy")</p>
                     <p><strong>Age:</strong> @CalculateAge(puppy.DateOfBirth)</p>
+                    <p><strong>Litter:</strong> @(litter != null ? litter.Name : "None")</p>
                 </div>
             </div>
         </div>
@@ -389,6 +390,7 @@ else
     public Guid PuppyId { get; set; }
 
     private Puppy? puppy;
+    private Litter? litter;
     private List<WeightEntry>? weights;
     private WeightStatistics? statistics;
     private bool loading = true;
@@ -428,6 +430,7 @@ else
             weights = await PuppyApi.GetWeightEntriesAsync(PuppyId);
             statistics = await PuppyApi.GetWeightStatisticsAsync(PuppyId);
             photos = await PuppyApi.GetPhotosAsync(PuppyId);
+            litter = puppy.LitterId.HasValue ? await PuppyApi.GetLitterByIdAsync(puppy.LitterId.Value) : null;
         }
         loading = false;
     }

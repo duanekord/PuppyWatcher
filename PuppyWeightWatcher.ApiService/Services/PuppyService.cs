@@ -23,6 +23,14 @@ public interface IPuppyService
     Task<bool> DeletePhotoAsync(Guid puppyId, Guid photoId);
     Task<bool> SetProfilePhotoAsync(Guid puppyId, Guid photoId);
     Task<Dictionary<Guid, PuppyPhoto>> GetProfilePhotosByPuppyIdsAsync(List<Guid> puppyIds);
+    Task<List<Litter>> GetAllLittersAsync();
+    Task<Litter?> GetLitterByIdAsync(Guid id);
+    Task<Litter> CreateLitterAsync(Litter litter);
+    Task<Litter?> UpdateLitterAsync(Guid id, Litter litter);
+    Task<bool> DeleteLitterAsync(Guid id);
+    Task<List<Puppy>> GetPuppiesByLitterIdAsync(Guid litterId);
+    Task<bool> AddPuppyToLitterAsync(Guid litterId, Guid puppyId);
+    Task<bool> RemovePuppyFromLitterAsync(Guid puppyId);
 }
 
 public class PuppyService(PuppyDbContext db) : IPuppyService
@@ -214,7 +222,7 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
 
     public async Task<List<PuppyPhoto>> GetPhotosAsync(Guid puppyId)
     {
-        return await db.Photos
+        return await db.PuppyPhotos
             .AsNoTracking()
             .Where(p => p.PuppyId == puppyId)
             .OrderByDescending(p => p.DateTaken)
@@ -223,7 +231,7 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
 
     public async Task<PuppyPhoto?> GetPhotoAsync(Guid photoId)
     {
-        return await db.Photos.AsNoTracking().FirstOrDefaultAsync(p => p.Id == photoId);
+        return await db.PuppyPhotos.AsNoTracking().FirstOrDefaultAsync(p => p.Id == photoId);
     }
 
     public async Task<PuppyPhoto> AddPhotoAsync(PuppyPhoto photo)
@@ -235,14 +243,14 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
         photo.Id = Guid.NewGuid();
         photo.CreatedAt = DateTime.UtcNow;
 
-        var hasPhotos = await db.Photos.AnyAsync(p => p.PuppyId == photo.PuppyId);
+        var hasPhotos = await db.PuppyPhotos.AnyAsync(p => p.PuppyId == photo.PuppyId);
         if (!hasPhotos)
         {
             photo.IsProfilePhoto = true;
             puppy.ProfilePhotoId = photo.Id;
         }
 
-        db.Photos.Add(photo);
+        db.PuppyPhotos.Add(photo);
         puppy.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return photo;
@@ -250,16 +258,16 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
 
     public async Task<bool> DeletePhotoAsync(Guid puppyId, Guid photoId)
     {
-        var photo = await db.Photos.FirstOrDefaultAsync(p => p.Id == photoId && p.PuppyId == puppyId);
+        var photo = await db.PuppyPhotos.FirstOrDefaultAsync(p => p.Id == photoId && p.PuppyId == puppyId);
         if (photo == null)
             return false;
 
-        db.Photos.Remove(photo);
+        db.PuppyPhotos.Remove(photo);
 
         var puppy = await db.Puppies.FindAsync(puppyId);
         if (puppy != null && puppy.ProfilePhotoId == photoId)
         {
-            var nextPhoto = await db.Photos
+            var nextPhoto = await db.PuppyPhotos
                 .Where(p => p.PuppyId == puppyId && p.Id != photoId)
                 .OrderByDescending(p => p.DateTaken)
                 .FirstOrDefaultAsync();
@@ -288,11 +296,11 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
         if (puppy == null)
             return false;
 
-        var photo = await db.Photos.FirstOrDefaultAsync(p => p.Id == photoId && p.PuppyId == puppyId);
+        var photo = await db.PuppyPhotos.FirstOrDefaultAsync(p => p.Id == photoId && p.PuppyId == puppyId);
         if (photo == null)
             return false;
 
-        var currentPhotos = await db.Photos.Where(p => p.PuppyId == puppyId).ToListAsync();
+        var currentPhotos = await db.PuppyPhotos.Where(p => p.PuppyId == puppyId).ToListAsync();
         foreach (var p in currentPhotos)
             p.IsProfilePhoto = false;
 
@@ -306,10 +314,114 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
 
     public async Task<Dictionary<Guid, PuppyPhoto>> GetProfilePhotosByPuppyIdsAsync(List<Guid> puppyIds)
     {
-        var profilePhotos = await db.Photos
+        var profilePhotos = await db.PuppyPhotos
             .AsNoTracking()
             .Where(p => puppyIds.Contains(p.PuppyId) && p.IsProfilePhoto)
             .ToListAsync();
         return profilePhotos.ToDictionary(p => p.PuppyId);
+    }
+
+    public async Task<List<Litter>> GetAllLittersAsync()
+    {
+        var litters = await db.Litters.AsNoTracking().OrderByDescending(l => l.CreatedAt).ToListAsync();
+        var litterIds = litters.Select(l => l.Id).ToList();
+        var puppyCounts = await db.Puppies
+            .AsNoTracking()
+            .Where(p => p.LitterId != null && litterIds.Contains(p.LitterId.Value))
+            .GroupBy(p => p.LitterId!.Value)
+            .Select(g => new { LitterId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.LitterId, g => g.Count);
+        foreach (var litter in litters)
+        {
+            litter.PuppyCount = puppyCounts.GetValueOrDefault(litter.Id, 0);
+        }
+        return litters;
+    }
+
+    public async Task<Litter?> GetLitterByIdAsync(Guid id)
+    {
+        var litter = await db.Litters.FindAsync(id);
+        if (litter != null)
+        {
+            litter.PuppyCount = await db.Puppies.CountAsync(p => p.LitterId == id);
+        }
+        return litter;
+    }
+
+    public async Task<Litter> CreateLitterAsync(Litter litter)
+    {
+        litter.Id = Guid.NewGuid();
+        litter.CreatedAt = DateTime.UtcNow;
+        db.Litters.Add(litter);
+        await db.SaveChangesAsync();
+        return litter;
+    }
+
+    public async Task<Litter?> UpdateLitterAsync(Guid id, Litter litter)
+    {
+        var existing = await db.Litters.FindAsync(id);
+        if (existing == null)
+            return null;
+
+        existing.Name = litter.Name;
+        existing.DateOfBirth = litter.DateOfBirth;
+        existing.Breed = litter.Breed;
+        existing.Notes = litter.Notes;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        return existing;
+    }
+
+    public async Task<bool> DeleteLitterAsync(Guid id)
+    {
+        var litter = await db.Litters.FindAsync(id);
+        if (litter == null)
+            return false;
+
+        db.Litters.Remove(litter);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<List<Puppy>> GetPuppiesByLitterIdAsync(Guid litterId)
+    {
+        return await db.Puppies
+            .AsNoTracking()
+            .Where(p => p.LitterId == litterId)
+            .ToListAsync();
+    }
+
+    public async Task<bool> AddPuppyToLitterAsync(Guid litterId, Guid puppyId)
+    {
+        var litter = await db.Litters.FindAsync(litterId);
+        if (litter == null)
+            return false;
+
+        var puppy = await db.Puppies.FindAsync(puppyId);
+        if (puppy == null)
+            return false;
+
+        puppy.LitterId = litterId;
+        puppy.DateOfBirth = litter.DateOfBirth;
+        if (!string.IsNullOrEmpty(litter.Breed))
+            puppy.Breed = litter.Breed;
+        puppy.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RemovePuppyFromLitterAsync(Guid puppyId)
+    {
+        var puppy = await db.Puppies.FindAsync(puppyId);
+        if (puppy == null)
+            return false;
+
+        puppy.LitterId = null;
+        puppy.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        return true;
     }
 }
