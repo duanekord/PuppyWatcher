@@ -1,7 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 var sqlServer = builder.AddSqlServer("sql")
-    .WithLifetime(ContainerLifetime.Persistent);
+    .WithLifetime(ContainerLifetime.Persistent)
+    .WithDataVolume("sqldata");
 
 var puppyDb = sqlServer.AddDatabase("puppydb");
 
