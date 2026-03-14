@@ -16,7 +16,7 @@ properties:
       external: false
       targetPort: 1433
       transport: tcp
-      allowInsecure: false
+      allowInsecure: true
     registries:
       - server: {{ .Env.AZURE_CONTAINER_REGISTRY_ENDPOINT }}
         identity: {{ .Env.AZURE_CONTAINER_REGISTRY_MANAGED_IDENTITY_ID }}
