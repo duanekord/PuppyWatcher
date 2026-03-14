@@ -60,19 +60,31 @@ else
             @if (showAddExisting)
             {
                 <div class="mb-3 p-3 bg-light rounded">
-                    <h6>Add Existing Puppy to Litter</h6>
-                    <p class="text-muted"><small>Selecting a puppy will update its date of birth and breed to match this litter.</small></p>
+                    <h6>Add Existing Puppies to Litter</h6>
+                    <p class="text-muted"><small>Select one or more puppies, then click "Add Selected". Their date of birth and breed will be updated to match this litter.</small></p>
                     @if (availablePuppies.Any())
                     {
                         <div class="row">
                             @foreach (var puppy in availablePuppies)
                             {
                                 <div class="col-md-4 mb-2">
-                                    <button class="btn btn-outline-primary w-100" @onclick="() => AddExistingPuppy(puppy.Id)">
-                                        @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
-                                    </button>
+                                    <div class="form-check border rounded p-2 h-100 @(selectedPuppyIds.Contains(puppy.Id) ? "border-primary bg-white" : "")">
+                                        <input class="form-check-input" type="checkbox" id="puppy-@puppy.Id"
+                                               checked="@selectedPuppyIds.Contains(puppy.Id)"
+                                               @onchange="() => TogglePuppySelection(puppy.Id)" />
+                                        <label class="form-check-label w-100" for="puppy-@puppy.Id" style="cursor:pointer;">
+                                            @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
+                                        </label>
+                                    </div>
                                 </div>
                             }
+                        </div>
+                        <div class="mt-2 d-flex gap-2 align-items-center">
+                            <button class="btn btn-primary" @onclick="AddSelectedPuppies" disabled="@(!selectedPuppyIds.Any())">
+                                Add Selected (@selectedPuppyIds.Count)
+                            </button>
+                            <button class="btn btn-link btn-sm" @onclick="SelectAllPuppies">Select All</button>
+                            <button class="btn btn-link btn-sm" @onclick="ClearSelection">Clear</button>
                         </div>
                     }
                     else
@@ -130,6 +142,7 @@ else
     private Litter? litter;
     private List<Puppy> litterPuppies = new();
     private List<Puppy> availablePuppies = new();
+    private HashSet<Guid> selectedPuppyIds = new();
     private bool loading = true;
     private bool showAddExisting = false;
 
@@ -150,7 +163,14 @@ else
     {
         showAddExisting = !showAddExisting;
         if (showAddExisting)
+        {
+            selectedPuppyIds.Clear();
             await LoadAvailablePuppies();
+        }
+        else
+        {
+            selectedPuppyIds.Clear();
+        }
     }
 
     private async Task LoadAvailablePuppies()
@@ -159,10 +179,30 @@ else
         availablePuppies = allPuppies.Where(p => p.LitterId == null).ToList();
     }
 
-    private async Task AddExistingPuppy(Guid puppyId)
+    private void TogglePuppySelection(Guid puppyId)
     {
-        await PuppyApi.AddPuppyToLitterAsync(LitterId, puppyId);
+        if (!selectedPuppyIds.Remove(puppyId))
+            selectedPuppyIds.Add(puppyId);
+    }
+
+    private void SelectAllPuppies()
+    {
+        selectedPuppyIds = availablePuppies.Select(p => p.Id).ToHashSet();
+    }
+
+    private void ClearSelection()
+    {
+        selectedPuppyIds.Clear();
+    }
+
+    private async Task AddSelectedPuppies()
+    {
+        if (!selectedPuppyIds.Any())
+            return;
+
+        await PuppyApi.AddPuppiesToLitterAsync(LitterId, selectedPuppyIds.ToList());
         showAddExisting = false;
+        selectedPuppyIds.Clear();
         await LoadData();
     }
 

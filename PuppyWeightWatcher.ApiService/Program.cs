@@ -279,6 +279,13 @@ app.MapPut("/litters/{litterId:guid}/puppies/{puppyId:guid}", async (Guid litter
 })
 .WithName("AddPuppyToLitter");
 
+app.MapPost("/litters/{litterId:guid}/puppies", async (Guid litterId, List<Guid> puppyIds, IPuppyService service) =>
+{
+    var result = await service.AddPuppiesToLitterAsync(litterId, puppyIds);
+    return result ? Results.Ok() : Results.NotFound();
+})
+.WithName("AddPuppiesToLitter");
+
 app.MapDelete("/litters/puppies/{puppyId:guid}", async (Guid puppyId, IPuppyService service) =>
 {
     var result = await service.RemovePuppyFromLitterAsync(puppyId);
