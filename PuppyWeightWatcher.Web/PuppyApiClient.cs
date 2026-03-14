@@ -158,6 +158,12 @@ public class PuppyApiClient(HttpClient httpClient)
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> AddPuppiesToLitterAsync(Guid litterId, List<Guid> puppyIds, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync($"/litters/{litterId}/puppies", puppyIds, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<bool> RemovePuppyFromLitterAsync(Guid puppyId, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.DeleteAsync($"/litters/puppies/{puppyId}", cancellationToken);

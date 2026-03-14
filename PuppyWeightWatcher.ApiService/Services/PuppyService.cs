@@ -30,6 +30,7 @@ public interface IPuppyService
     Task<bool> DeleteLitterAsync(Guid id);
     Task<List<Puppy>> GetPuppiesByLitterIdAsync(Guid litterId);
     Task<bool> AddPuppyToLitterAsync(Guid litterId, Guid puppyId);
+    Task<bool> AddPuppiesToLitterAsync(Guid litterId, List<Guid> puppyIds);
     Task<bool> RemovePuppyFromLitterAsync(Guid puppyId);
 }
 
@@ -407,6 +408,29 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
         if (!string.IsNullOrEmpty(litter.Breed))
             puppy.Breed = litter.Breed;
         puppy.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> AddPuppiesToLitterAsync(Guid litterId, List<Guid> puppyIds)
+    {
+        var litter = await db.Litters.FindAsync(litterId);
+        if (litter == null)
+            return false;
+
+        var puppies = await db.Puppies
+            .Where(p => puppyIds.Contains(p.Id))
+            .ToListAsync();
+
+        foreach (var puppy in puppies)
+        {
+            puppy.LitterId = litterId;
+            puppy.DateOfBirth = litter.DateOfBirth;
+            if (!string.IsNullOrEmpty(litter.Breed))
+                puppy.Breed = litter.Breed;
+            puppy.UpdatedAt = DateTime.UtcNow;
+        }
 
         await db.SaveChangesAsync();
         return true;
