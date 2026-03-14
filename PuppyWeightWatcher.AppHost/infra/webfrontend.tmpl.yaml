@@ -28,9 +28,9 @@ properties:
       - name: identitydb-uri
         value: mssql://sa:{{ securedParameter "sql_password" }}@sql:1433/identitydb
       - name: auth-microsoft-clientid
-        value: '{{ securedParameter "auth_microsoft_clientid" }}'
+        value: '{{ .Env.AUTH_MICROSOFT_CLIENTID }}'
       - name: auth-microsoft-clientsecret
-        value: '{{ securedParameter "auth_microsoft_clientsecret" }}'
+        value: '{{ .Env.AUTH_MICROSOFT_CLIENTSECRET }}'
   template:
     containers:
       - image: {{ .Image }}
