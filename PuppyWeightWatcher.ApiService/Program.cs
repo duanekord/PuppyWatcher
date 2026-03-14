@@ -1,6 +1,7 @@
 using PuppyWeightWatcher.Shared.Models;
 using PuppyWeightWatcher.ApiService.Data;
 using PuppyWeightWatcher.ApiService.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +14,17 @@ builder.Services.AddProblemDetails();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// Add SQL Server DbContext via Aspire integration
-builder.AddSqlServerDbContext<PuppyDbContext>("puppydb");
+// Add SQL Server DbContext via Aspire integration with retry logic for Azure
+builder.AddSqlServerDbContext<PuppyDbContext>("puppydb", configureDbContextOptions: options =>
+{
+    options.UseSqlServer(sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null);
+    });
+});
+
+// Add response compression for faster API responses
+builder.Services.AddResponseCompression();
 
 // Register PuppyService as scoped (matches DbContext lifetime)
 builder.Services.AddScoped<IPuppyService, PuppyService>();
@@ -29,6 +39,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
+app.UseResponseCompression();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())

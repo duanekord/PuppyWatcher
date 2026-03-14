@@ -42,6 +42,7 @@ public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContex
         {
             entity.HasKey(w => w.Id);
             entity.Property(w => w.Notes).HasMaxLength(500);
+            entity.HasIndex(w => w.PuppyId);
         });
 
         modelBuilder.Entity<ShotRecord>(entity =>
@@ -50,6 +51,7 @@ public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContex
             entity.Property(s => s.VaccinationType).IsRequired().HasMaxLength(100);
             entity.Property(s => s.Notes).HasMaxLength(500);
             entity.Property(s => s.AdministeredBy).HasMaxLength(100);
+            entity.HasIndex(s => s.PuppyId);
         });
 
         modelBuilder.Entity<PuppyPhoto>(entity =>
@@ -58,6 +60,7 @@ public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContex
             entity.Property(ph => ph.FileName).IsRequired().HasMaxLength(255);
             entity.Property(ph => ph.ContentType).IsRequired().HasMaxLength(100);
             entity.Property(ph => ph.Caption).HasMaxLength(500);
+            entity.HasIndex(ph => new { ph.PuppyId, ph.IsProfilePhoto });
         });
     }
 }

@@ -32,12 +32,11 @@ resource sqlDB 'Microsoft.Sql/servers/databases@2023-08-01' = {
     maxSizeBytes: 2147483648
     readScale: 'Disabled'
     zoneRedundant: false
-    sampleName: 'AdventureWorksLT'
   }
   sku: {
-    name: 'Basic'
-    tier: 'Basic'
-    capacity: 5
+    name: 'S0'
+    tier: 'Standard'
+    capacity: 10
   }
   dependsOn: [ sqlServer ]
 }

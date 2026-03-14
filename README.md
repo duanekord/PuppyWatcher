@@ -2,6 +2,10 @@
 
 A .NET Aspire Blazor application for tracking puppy weight, vaccinations, and photos. Installable as a PWA on mobile devices.
 
+## Live App
+
+**https://webfrontend.bravetree-1f7b14aa.eastus2.azurecontainerapps.io/**
+
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
