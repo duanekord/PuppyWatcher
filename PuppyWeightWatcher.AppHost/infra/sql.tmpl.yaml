@@ -24,6 +24,10 @@ properties:
       - name: mssql-sa-password
         value: '{{ securedParameter "sql_password" }}'
   template:
+    volumes:
+      - name: sqldata
+        storageName: sqldata
+        storageType: AzureFile
     containers:
       - image: {{ .Image }}
         name: sql
@@ -34,6 +38,9 @@ properties:
             value: "Y"
           - name: MSSQL_SA_PASSWORD
             secretRef: mssql-sa-password
+        volumeMounts:
+          - volumeName: sqldata
+            mountPath: /var/opt/mssql
     scale:
       minReplicas: 1
 tags:
