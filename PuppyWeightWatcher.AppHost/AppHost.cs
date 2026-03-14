@@ -5,6 +5,7 @@ var sqlServer = builder.AddSqlServer("sql")
     .WithDataVolume("sqldata");
 
 var puppyDb = sqlServer.AddDatabase("puppydb");
+var identityDb = sqlServer.AddDatabase("identitydb");
 
 var apiService = builder.AddProject<Projects.PuppyWeightWatcher_ApiService>("apiservice")
     .WithHttpHealthCheck("/health")
@@ -15,6 +16,8 @@ builder.AddProject<Projects.PuppyWeightWatcher_Web>("webfrontend")
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health")
     .WithReference(apiService)
-    .WaitFor(apiService);
+    .WithReference(identityDb)
+    .WaitFor(apiService)
+    .WaitFor(identityDb);
 
 builder.Build().Run();

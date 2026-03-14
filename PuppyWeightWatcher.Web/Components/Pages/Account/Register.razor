@@ -1,0 +1,136 @@
+@page "/Account/Register"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using PuppyWeightWatcher.Web.Data
+@attribute [AllowAnonymous]
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>Register</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <h1 class="mb-4">Register</h1>
+
+        @if (errors.Count > 0)
+        {
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach (var error in errors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <InputText @bind-Value="Input.Email" class="form-control" autocomplete="username" placeholder="name@example.com" />
+                <ValidationMessage For="() => Input.Email" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <InputText type="password" @bind-Value="Input.Password" class="form-control" autocomplete="new-password" placeholder="password" />
+                <ValidationMessage For="() => Input.Password" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label for="confirmPassword" class="form-label">Confirm Password</label>
+                <InputText type="password" @bind-Value="Input.ConfirmPassword" class="form-control" autocomplete="new-password" placeholder="confirm password" />
+                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Register</button>
+        </EditForm>
+
+        @if (externalLogins.Any())
+        {
+            <hr />
+
+            <h5 class="text-center">Or sign up with</h5>
+            <div class="d-grid gap-2">
+                @foreach (var provider in externalLogins)
+                {
+                    @if (provider.Name == "Microsoft")
+                    {
+                        <div class="text-center">
+                            <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=/" class="ms-login-btn">
+                                <img src="images/microsoft-logo.svg" alt="Sign up with Microsoft" />
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=/" class="btn btn-outline-secondary">
+                            @provider.DisplayName
+                        </a>
+                    }
+                }
+            </div>
+        }
+
+        <hr />
+
+        <p class="text-center">
+            Already have an account? <a href="/Account/Login">Login</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private List<string> errors = new();
+    private IEnumerable<Microsoft.AspNetCore.Authentication.AuthenticationScheme> externalLogins = [];
+
+    [SupplyParameterFromForm]
+    private RegisterModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        externalLogins = await SignInManager.GetExternalAuthenticationSchemesAsync();
+    }
+
+    private async Task RegisterUser()
+    {
+        errors.Clear();
+
+        var user = new ApplicationUser { UserName = Input.Email, Email = Input.Email };
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (result.Succeeded)
+        {
+            await SignInManager.SignInAsync(user, isPersistent: false);
+            NavigationManager.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            foreach (var error in result.Errors)
+            {
+                errors.Add(error.Description);
+            }
+        }
+    }
+
+    private sealed class RegisterModel
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

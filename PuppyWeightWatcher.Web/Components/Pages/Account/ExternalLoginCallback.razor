@@ -1,0 +1,105 @@
+@page "/Account/ExternalLoginCallback"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using PuppyWeightWatcher.Web.Data
+@attribute [AllowAnonymous]
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject ILogger<ExternalLoginCallback> Logger
+
+<PageTitle>External Login</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">
+                <h4>Login failed</h4>
+                <p>@errorMessage</p>
+                <a href="/Account/Login" class="btn btn-primary">Back to Login</a>
+            </div>
+        }
+        else
+        {
+            <p>Processing external login...</p>
+        }
+    </div>
+</div>
+
+@code {
+    private string? errorMessage;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var info = await SignInManager.GetExternalLoginInfoAsync();
+        if (info is null)
+        {
+            Logger.LogWarning("GetExternalLoginInfoAsync returned null. External cookie may be missing.");
+            errorMessage = "Error loading external login information. Please try again.";
+            return;
+        }
+
+        // Try to sign in with existing external login
+        var result = await SignInManager.ExternalLoginSignInAsync(
+            info.LoginProvider, info.ProviderKey, isPersistent: false, bypassTwoFactor: true);
+
+        if (result.Succeeded)
+        {
+            Logger.LogInformation("{Name} logged in with {LoginProvider} provider.",
+                info.Principal.Identity?.Name, info.LoginProvider);
+            RedirectTo(ReturnUrl ?? "/");
+            return;
+        }
+
+        // User does not have an account — create one
+        var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrEmpty(email))
+        {
+            errorMessage = "Email claim not received from external provider. Please contact support.";
+            return;
+        }
+
+        var user = await UserManager.FindByEmailAsync(email);
+        if (user is null)
+        {
+            user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email
+            };
+
+            var createResult = await UserManager.CreateAsync(user);
+            if (!createResult.Succeeded)
+            {
+                errorMessage = "Error creating user account: " +
+                    string.Join(", ", createResult.Errors.Select(e => e.Description));
+                return;
+            }
+        }
+
+        var addLoginResult = await UserManager.AddLoginAsync(user, info);
+        if (!addLoginResult.Succeeded)
+        {
+            errorMessage = "Error adding external login: " +
+                string.Join(", ", addLoginResult.Errors.Select(e => e.Description));
+            return;
+        }
+
+        await SignInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
+        Logger.LogInformation("{Email} created an account using {LoginProvider} provider.",
+            email, info.LoginProvider);
+        RedirectTo(ReturnUrl ?? "/");
+    }
+
+    private void RedirectTo(string url)
+    {
+        HttpContext.Response.Redirect(url);
+    }
+}
