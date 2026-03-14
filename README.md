@@ -67,3 +67,30 @@ azd down --purge
 ```
 
 > **Note:** `azd down` will permanently delete your Azure SQL database and all data. Make sure to back up any data you want to keep before running this command.
+
+## CI/CD with GitHub Actions
+
+This repository includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically deploys to Azure on every push to the `master` branch.
+
+### How It Works
+
+1. Push code to `master` (or merge a pull request)
+2. GitHub Actions runs the workflow automatically
+3. The workflow authenticates to Azure using OIDC federated credentials (no secrets stored)
+4. `azd up` provisions any infrastructure changes and deploys the updated app
+
+You can also trigger a deployment manually from the **Actions** tab in GitHub using the "Run workflow" button.
+
+### Configuration
+
+The workflow uses these GitHub repository variables (already configured):
+
+| Variable | Value |
+|---|---|
+| `AZURE_CLIENT_ID` | App registration client ID |
+| `AZURE_TENANT_ID` | Azure AD tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
+| `AZURE_ENV_NAME` | `puppyweightwatcher` |
+| `AZURE_LOCATION` | `eastus2` |
+
+These can be viewed/changed at **Settings** → **Secrets and variables** → **Actions** → **Variables** in your GitHub repository.
