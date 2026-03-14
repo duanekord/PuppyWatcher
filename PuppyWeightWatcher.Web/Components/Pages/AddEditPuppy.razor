@@ -1,0 +1,251 @@
+@page "/puppies/add"
+@page "/puppies/edit/{PuppyId:guid}"
+@using PuppyWeightWatcher.Shared.Models
+@inject PuppyApiClient PuppyApi
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEditMode ? "Edit Puppy" : "Add New Puppy")</PageTitle>
+
+<h1>@(IsEditMode ? "Edit Puppy" : "Add New Puppy")</h1>
+
+@if (loading)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Collar Color <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="collarColor" placeholder="Red, Blue, Green, etc." required />
+                        <div class="form-text">Primary identifier for tracking newborn puppies</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" @bind="name" placeholder="Optional - can be added later" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" @bind="dateOfBirth" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Breed</label>
+                        <input type="text" class="form-control" @bind="breed" placeholder="Optional" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Gender</label>
+                        <select class="form-control" @bind="gender">
+                            <option value="">Select...</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" @onclick="SavePuppy" disabled="@saving">
+                            @if (saving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            }
+                            @(IsEditMode ? "Update Puppy" : "Add Puppy")
+                        </button>
+                        <button class="btn btn-secondary" @onclick="Cancel" disabled="@saving">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Color Preview</h5>
+                </div>
+                <div class="card-body text-center">
+                    @if (!string.IsNullOrWhiteSpace(collarColor))
+                    {
+                        <div class="p-4 rounded" style="background-color: @GetColorValue(collarColor); color: @GetTextColor(collarColor);">
+                            <h3>@(string.IsNullOrWhiteSpace(name) ? $"Puppy ({collarColor})" : name)</h3>
+                            <p class="mb-0">Collar Color: @collarColor</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="p-4 rounded bg-light text-muted">
+                            <p class="mb-0">Enter a collar color to see preview</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Common Collar Colors</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var color in CommonColors)
+                        {
+                            <button class="btn btn-sm" 
+                                    style="background-color: @GetColorValue(color); color: @GetTextColor(color);"
+                                    @onclick="() => collarColor = color">
+                                @color
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid? PuppyId { get; set; }
+
+    private bool IsEditMode => PuppyId.HasValue;
+    private bool loading = false;
+    private bool saving = false;
+    private string errorMessage = string.Empty;
+
+    private string collarColor = string.Empty;
+    private string name = string.Empty;
+    private DateTime dateOfBirth = DateTime.Today;
+    private string breed = string.Empty;
+    private string gender = string.Empty;
+
+    private string[] CommonColors = new[] 
+    { 
+        "Red", "Blue", "Green", "Yellow", "Purple", 
+        "Pink", "Orange", "Black", "White", "Brown", "Gray" 
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEditMode)
+        {
+            loading = true;
+            var puppy = await PuppyApi.GetPuppyByIdAsync(PuppyId!.Value);
+            if (puppy != null)
+            {
+                collarColor = puppy.CollarColor;
+                name = puppy.Name ?? string.Empty;
+                dateOfBirth = puppy.DateOfBirth;
+                breed = puppy.Breed ?? string.Empty;
+                gender = puppy.Gender ?? string.Empty;
+            }
+            else
+            {
+                errorMessage = "Puppy not found.";
+            }
+            loading = false;
+        }
+    }
+
+    private async Task SavePuppy()
+    {
+        errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(collarColor))
+        {
+            errorMessage = "Collar color is required.";
+            return;
+        }
+
+        if (dateOfBirth > DateTime.Today)
+        {
+            errorMessage = "Date of birth cannot be in the future.";
+            return;
+        }
+
+        saving = true;
+
+        try
+        {
+            var puppy = new Puppy
+            {
+                CollarColor = collarColor.Trim(),
+                Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim(),
+                DateOfBirth = dateOfBirth,
+                Breed = string.IsNullOrWhiteSpace(breed) ? null : breed.Trim(),
+                Gender = string.IsNullOrWhiteSpace(gender) ? null : gender
+            };
+
+            if (IsEditMode)
+            {
+                await PuppyApi.UpdatePuppyAsync(PuppyId!.Value, puppy);
+                Navigation.NavigateTo($"/puppies/{PuppyId.Value}");
+            }
+            else
+            {
+                var created = await PuppyApi.CreatePuppyAsync(puppy);
+                if (created != null)
+                {
+                    Navigation.NavigateTo($"/puppies/{created.Id}");
+                }
+                else
+                {
+                    errorMessage = "Failed to create puppy.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving puppy: {ex.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        if (IsEditMode)
+        {
+            Navigation.NavigateTo($"/puppies/{PuppyId!.Value}");
+        }
+        else
+        {
+            Navigation.NavigateTo("/puppies");
+        }
+    }
+
+    private string GetColorValue(string collarColor)
+    {
+        return collarColor.ToLower() switch
+        {
+            "red" => "#dc3545",
+            "blue" => "#0d6efd",
+            "green" => "#198754",
+            "yellow" => "#ffc107",
+            "purple" => "#6f42c1",
+            "pink" => "#d63384",
+            "orange" => "#fd7e14",
+            "black" => "#212529",
+            "white" => "#f8f9fa",
+            "brown" => "#795548",
+            "gray" or "grey" => "#6c757d",
+            _ => "#6c757d"
+        };
+    }
+
+    private string GetTextColor(string collarColor)
+    {
+        var darkColors = new[] { "red", "blue", "green", "purple", "black", "brown", "gray", "grey" };
+        return darkColors.Contains(collarColor.ToLower()) ? "white" : "black";
+    }
+}

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="PuppyWeightWatcher.ApiService/PuppyWeightWatcher.ApiService.csproj" />
+  <Project Path="PuppyWeightWatcher.AppHost/PuppyWeightWatcher.AppHost.csproj" />
+  <Project Path="PuppyWeightWatcher.ServiceDefaults/PuppyWeightWatcher.ServiceDefaults.csproj" />
+  <Project Path="PuppyWeightWatcher.Shared/PuppyWeightWatcher.Shared.csproj" />
+  <Project Path="PuppyWeightWatcher.Web/PuppyWeightWatcher.Web.csproj" />
+</Solution>

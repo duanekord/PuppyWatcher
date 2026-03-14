@@ -1,0 +1,63 @@
+using Microsoft.EntityFrameworkCore;
+using PuppyWeightWatcher.Shared.Models;
+
+namespace PuppyWeightWatcher.ApiService.Data;
+
+public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContext(options)
+{
+    public DbSet<Puppy> Puppies => Set<Puppy>();
+    public DbSet<WeightEntry> WeightEntries => Set<WeightEntry>();
+    public DbSet<ShotRecord> ShotRecords => Set<ShotRecord>();
+    public DbSet<PuppyPhoto> Photos => Set<PuppyPhoto>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Puppy>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.CollarColor).IsRequired().HasMaxLength(50);
+            entity.Property(p => p.Name).HasMaxLength(100);
+            entity.Property(p => p.Breed).HasMaxLength(100);
+            entity.Property(p => p.Gender).HasMaxLength(20);
+
+            entity.HasMany<ShotRecord>()
+                .WithOne()
+                .HasForeignKey(s => s.PuppyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany<WeightEntry>()
+                .WithOne()
+                .HasForeignKey(w => w.PuppyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany<PuppyPhoto>()
+                .WithOne()
+                .HasForeignKey(ph => ph.PuppyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Ignore(p => p.ShotRecords);
+        });
+
+        modelBuilder.Entity<WeightEntry>(entity =>
+        {
+            entity.HasKey(w => w.Id);
+            entity.Property(w => w.Notes).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<ShotRecord>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.VaccinationType).IsRequired().HasMaxLength(100);
+            entity.Property(s => s.Notes).HasMaxLength(500);
+            entity.Property(s => s.AdministeredBy).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<PuppyPhoto>(entity =>
+        {
+            entity.HasKey(ph => ph.Id);
+            entity.Property(ph => ph.FileName).IsRequired().HasMaxLength(255);
+            entity.Property(ph => ph.ContentType).IsRequired().HasMaxLength(100);
+            entity.Property(ph => ph.Caption).HasMaxLength(500);
+        });
+    }
+}

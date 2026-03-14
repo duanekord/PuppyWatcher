@@ -1,0 +1,20 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>1600e2ef-3abb-4797-a38c-3002f14eb102</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PuppyWeightWatcher.ApiService\PuppyWeightWatcher.ApiService.csproj" />
+    <ProjectReference Include="..\PuppyWeightWatcher.Web\PuppyWeightWatcher.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.SqlServer" Version="13.1.2" />
+  </ItemGroup>
+
+</Project>

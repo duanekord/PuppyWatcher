@@ -1,0 +1,152 @@
+@page "/"
+@page "/puppies"
+@using PuppyWeightWatcher.Shared.Models
+@inject PuppyApiClient PuppyApi
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>My Puppies</PageTitle>
+
+<h1>Puppy Tracker</h1>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="NavigateToAddPuppy">
+        <span class="oi oi-plus" aria-hidden="true"></span> Add New Puppy
+    </button>
+</div>
+
+@if (loading)
+{
+    <p><em>Loading puppies...</em></p>
+}
+else if (puppies == null || !puppies.Any())
+{
+    <div class="alert alert-info">
+        <p>No puppies tracked yet. Click "Add New Puppy" to get started!</p>
+    </div>
+}
+else
+{
+    <div class="row">
+        @foreach (var puppy in puppies)
+        {
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-header" style="background-color: @GetColorValue(puppy.CollarColor); color: @GetTextColor(puppy.CollarColor);">
+                        <h5 class="mb-0">
+                            @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
+                        </h5>
+                    </div>
+                    @if (profilePhotos.TryGetValue(puppy.Id, out var profilePhoto))
+                    {
+                        <img src="data:@profilePhoto.ContentType;base64,@profilePhoto.Base64Data"
+                             alt="@(puppy.Name ?? puppy.CollarColor)"
+                             class="card-img-top" style="height: 200px; object-fit: cover;" />
+                    }
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong>Collar Color:</strong> @puppy.CollarColor<br />
+                            @if (!string.IsNullOrEmpty(puppy.Breed))
+                            {
+                                <span><strong>Breed:</strong> @puppy.Breed<br /></span>
+                            }
+                            @if (!string.IsNullOrEmpty(puppy.Gender))
+                            {
+                                <span><strong>Gender:</strong> @puppy.Gender<br /></span>
+                            }
+                            <strong>Date of Birth:</strong> @puppy.DateOfBirth.ToString("MM/dd/yyyy")<br />
+                            <strong>Age:</strong> @CalculateAge(puppy.DateOfBirth)<br />
+                            <strong>Shots:</strong> @puppy.ShotRecords.Count
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-sm btn-primary" @onclick="() => NavigateToDetails(puppy.Id)">
+                            View Details
+                        </button>
+                        <button class="btn btn-sm btn-danger float-end" @onclick="() => DeletePuppy(puppy.Id)">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Puppy>? puppies;
+    private bool loading = true;
+    private Dictionary<Guid, PuppyPhoto> profilePhotos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPuppies();
+    }
+
+    private async Task LoadPuppies()
+    {
+        loading = true;
+        puppies = await PuppyApi.GetAllPuppiesAsync();
+        profilePhotos.Clear();
+        if (puppies != null && puppies.Count > 0)
+        {
+            var puppyIds = puppies.Select(p => p.Id).ToList();
+            profilePhotos = await PuppyApi.GetProfilePhotosAsync(puppyIds);
+        }
+        loading = false;
+    }
+
+    private void NavigateToAddPuppy()
+    {
+        Navigation.NavigateTo("/puppies/add");
+    }
+
+    private void NavigateToDetails(Guid puppyId)
+    {
+        Navigation.NavigateTo($"/puppies/{puppyId}");
+    }
+
+    private async Task DeletePuppy(Guid puppyId)
+    {
+        if (await PuppyApi.DeletePuppyAsync(puppyId))
+        {
+            await LoadPuppies();
+        }
+    }
+
+    private string CalculateAge(DateTime dateOfBirth)
+    {
+        var age = DateTime.Now - dateOfBirth;
+        if (age.TotalDays < 7)
+            return $"{(int)age.TotalDays} day{(age.TotalDays >= 2 ? "s" : "")} old";
+        else if (age.TotalDays < 30)
+            return $"{(int)(age.TotalDays / 7)} week{(age.TotalDays >= 14 ? "s" : "")} old";
+        else
+            return $"{(int)(age.TotalDays / 30)} month{(age.TotalDays >= 60 ? "s" : "")} old";
+    }
+
+    private string GetColorValue(string collarColor)
+    {
+        return collarColor.ToLower() switch
+        {
+            "red" => "#dc3545",
+            "blue" => "#0d6efd",
+            "green" => "#198754",
+            "yellow" => "#ffc107",
+            "purple" => "#6f42c1",
+            "pink" => "#d63384",
+            "orange" => "#fd7e14",
+            "black" => "#212529",
+            "white" => "#f8f9fa",
+            "brown" => "#795548",
+            "gray" or "grey" => "#6c757d",
+            _ => "#6c757d"
+        };
+    }
+
+    private string GetTextColor(string collarColor)
+    {
+        var darkColors = new[] { "red", "blue", "green", "purple", "black", "brown", "gray", "grey" };
+        return darkColors.Contains(collarColor.ToLower()) ? "white" : "black";
+    }
+}
