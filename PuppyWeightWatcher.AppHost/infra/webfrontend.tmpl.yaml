@@ -27,6 +27,10 @@ properties:
         value: '{{ securedParameter "sql_password" }}'
       - name: identitydb-uri
         value: mssql://sa:{{ securedParameter "sql_password" }}@sql:1433/identitydb
+      - name: auth-microsoft-clientid
+        value: '{{ securedParameter "auth_microsoft_clientid" }}'
+      - name: auth-microsoft-clientsecret
+        value: '{{ securedParameter "auth_microsoft_clientsecret" }}'
   template:
     containers:
       - image: {{ .Image }}
@@ -58,6 +62,10 @@ properties:
             value: "true"
           - name: OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY
             value: in_memory
+          - name: Authentication__Microsoft__ClientId
+            secretRef: auth-microsoft-clientid
+          - name: Authentication__Microsoft__ClientSecret
+            secretRef: auth-microsoft-clientsecret
           - name: services__apiservice__http__0
             value: http://apiservice.internal.{{ .Env.AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN }}
           - name: services__apiservice__https__0
