@@ -1,0 +1,16 @@
+bin/
+obj/
+*.user
+*.suo
+*.pdb
+*.mdb
+*.tscache
+.vs/
+.vscode/
+Dockerfile
+*.md
+*.log
+.env
+node_modules/
+build/
+TestResults/
