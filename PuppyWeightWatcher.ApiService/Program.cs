@@ -31,11 +31,25 @@ builder.Services.AddScoped<IPuppyService, PuppyService>();
 
 var app = builder.Build();
 
-// Apply pending EF Core migrations on startup
-using (var scope = app.Services.CreateScope())
+// Apply pending EF Core migrations on startup with retry for container environments
+var retryCount = 0;
+const int maxRetries = 10;
+while (true)
 {
-    var db = scope.ServiceProvider.GetRequiredService<PuppyDbContext>();
-    await db.Database.MigrateAsync();
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PuppyDbContext>();
+        await db.Database.MigrateAsync();
+        break;
+    }
+    catch (Exception ex) when (retryCount < maxRetries)
+    {
+        retryCount++;
+        var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Migration");
+        logger.LogWarning(ex, "Database migration attempt {Attempt}/{MaxRetries} failed. Retrying in {Delay}s...", retryCount, maxRetries, retryCount * 5);
+        await Task.Delay(TimeSpan.FromSeconds(retryCount * 5));
+    }
 }
 
 // Configure the HTTP request pipeline.
