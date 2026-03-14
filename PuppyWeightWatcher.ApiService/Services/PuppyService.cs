@@ -370,6 +370,17 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
         existing.Notes = litter.Notes;
         existing.UpdatedAt = DateTime.UtcNow;
 
+        var puppies = await db.Puppies
+            .Where(p => p.LitterId == id)
+            .ToListAsync();
+
+        foreach (var puppy in puppies)
+        {
+            puppy.DateOfBirth = litter.DateOfBirth;
+            puppy.Breed = litter.Breed;
+            puppy.UpdatedAt = DateTime.UtcNow;
+        }
+
         await db.SaveChangesAsync();
         return existing;
     }

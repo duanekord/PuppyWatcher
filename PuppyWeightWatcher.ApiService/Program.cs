@@ -153,7 +153,7 @@ app.MapDelete("/puppies/{puppyId:guid}/shots/{shotRecordId:guid}", async (Guid p
 .WithName("DeleteShotRecord");
 
 // Photo endpoints
-app.MapPost("/puppies/profile-photos", async (List<Guid> puppyIds, IPuppyService service) =>
+app.MapPost("/puppies/profile-photos", async ([Microsoft.AspNetCore.Mvc.FromBody] List<Guid> puppyIds, IPuppyService service) =>
 {
     var photos = await service.GetProfilePhotosByPuppyIdsAsync(puppyIds);
     return Results.Ok(photos);
@@ -279,7 +279,7 @@ app.MapPut("/litters/{litterId:guid}/puppies/{puppyId:guid}", async (Guid litter
 })
 .WithName("AddPuppyToLitter");
 
-app.MapPost("/litters/{litterId:guid}/puppies", async (Guid litterId, List<Guid> puppyIds, IPuppyService service) =>
+app.MapPost("/litters/{litterId:guid}/puppies", async (Guid litterId, [Microsoft.AspNetCore.Mvc.FromBody] List<Guid> puppyIds, IPuppyService service) =>
 {
     var result = await service.AddPuppiesToLitterAsync(litterId, puppyIds);
     return result ? Results.Ok() : Results.NotFound();
