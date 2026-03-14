@@ -8,6 +8,7 @@ public class Litter
     public string? Breed { get; set; }
     public string? Notes { get; set; }
     public int PuppyCount { get; set; }
+    public LitterRole? UserRole { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 }

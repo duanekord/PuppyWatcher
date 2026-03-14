@@ -169,4 +169,30 @@ public class PuppyApiClient(HttpClient httpClient)
         var response = await httpClient.DeleteAsync($"/litters/puppies/{puppyId}", cancellationToken);
         return response.IsSuccessStatusCode;
     }
+
+    // Litter member operations
+    public async Task<List<LitterMember>> GetLitterMembersAsync(Guid litterId, CancellationToken cancellationToken = default)
+    {
+        return await httpClient.GetFromJsonAsync<List<LitterMember>>($"/litters/{litterId}/members", cancellationToken) ?? new List<LitterMember>();
+    }
+
+    public async Task<LitterMember?> AddLitterMemberAsync(Guid litterId, string email, LitterRole role, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync($"/litters/{litterId}/members", new { Email = email, Role = role }, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return null;
+        return await response.Content.ReadFromJsonAsync<LitterMember>(cancellationToken);
+    }
+
+    public async Task<bool> UpdateLitterMemberRoleAsync(Guid litterId, Guid memberId, LitterRole role, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PutAsJsonAsync($"/litters/{litterId}/members/{memberId}", new { Role = role }, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RemoveLitterMemberAsync(Guid litterId, Guid memberId, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.DeleteAsync($"/litters/{litterId}/members/{memberId}", cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
 }

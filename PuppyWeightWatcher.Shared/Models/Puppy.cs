@@ -9,6 +9,7 @@ public class Puppy
     public string? Breed { get; set; }
     public string? Gender { get; set; }
     public Guid? LitterId { get; set; }
+    public string? OwnerId { get; set; }
     public List<ShotRecord> ShotRecords { get; set; } = new();
     public Guid? ProfilePhotoId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

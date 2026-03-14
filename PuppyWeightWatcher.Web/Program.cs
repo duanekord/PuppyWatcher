@@ -81,10 +81,13 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddOutputCache();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<UserIdDelegatingHandler>();
 builder.Services.AddHttpClient<PuppyApiClient>(client =>
     {
         client.BaseAddress = new("https+http://apiservice");
-    });
+    })
+    .AddHttpMessageHandler<UserIdDelegatingHandler>();
 
 builder.Services.AddCascadingAuthenticationState();
 

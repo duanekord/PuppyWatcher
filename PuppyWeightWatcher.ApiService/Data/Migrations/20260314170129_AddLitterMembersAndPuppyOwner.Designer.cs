@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PuppyWeightWatcher.ApiService.Data;
 
@@ -11,9 +12,11 @@ using PuppyWeightWatcher.ApiService.Data;
 namespace PuppyWeightWatcher.ApiService.Data.Migrations
 {
     [DbContext(typeof(PuppyDbContext))]
-    partial class PuppyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260314170129_AddLitterMembersAndPuppyOwner")]
+    partial class AddLitterMembersAndPuppyOwner
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

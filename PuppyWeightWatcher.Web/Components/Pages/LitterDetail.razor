@@ -20,7 +20,13 @@ else if (litter == null)
 else
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>@litter.Name</h1>
+        <div class="d-flex align-items-center gap-2">
+            <h1>@litter.Name</h1>
+            @if (litter.UserRole != null)
+            {
+                <span class="badge @GetRoleBadgeClass(litter.UserRole.Value)">@litter.UserRole.Value</span>
+            }
+        </div>
         <button class="btn btn-secondary" @onclick="GoBack">Back to Litters</button>
     </div>
 
@@ -29,7 +35,10 @@ else
             <div class="card">
                 <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Litter Information</h5>
-                    <button class="btn btn-sm btn-light" @onclick="EditLitter">Edit</button>
+                    @if (CanEdit)
+                    {
+                        <button class="btn btn-sm btn-light" @onclick="EditLitter">Edit</button>
+                    }
                 </div>
                 <div class="card-body">
                     <p><strong>Date of Birth:</strong> @litter.DateOfBirth.ToString("MM/dd/yyyy")</p>
@@ -47,14 +56,17 @@ else
     <div class="card mb-4">
         <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Puppies in this Litter</h5>
-            <div class="d-flex gap-2">
-                <button class="btn btn-light btn-sm" @onclick="ToggleAddExisting">
-                    @(showAddExisting ? "Cancel" : "Add Existing Puppy")
-                </button>
-                <button class="btn btn-light btn-sm" @onclick="AddNewPuppyToLitter">
-                    Add New Puppy
-                </button>
-            </div>
+            @if (CanEdit)
+            {
+                <div class="d-flex gap-2">
+                    <button class="btn btn-light btn-sm" @onclick="ToggleAddExisting">
+                        @(showAddExisting ? "Cancel" : "Add Existing Puppy")
+                    </button>
+                    <button class="btn btn-light btn-sm" @onclick="AddNewPuppyToLitter">
+                        Add New Puppy
+                    </button>
+                </div>
+            }
         </div>
         <div class="card-body">
             @if (showAddExisting)
@@ -121,9 +133,12 @@ else
                                         <button class="btn btn-sm btn-primary me-1" @onclick="() => ViewPuppy(puppy.Id)">
                                             View
                                         </button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RemovePuppy(puppy.Id)">
-                                            Remove
-                                        </button>
+                                        @if (CanEdit)
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemovePuppy(puppy.Id)">
+                                                Remove
+                                            </button>
+                                        }
                                     </td>
                                 </tr>
                             }
@@ -133,6 +148,82 @@ else
             }
         </div>
     </div>
+
+    @if (CanEdit)
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Members</h5>
+            </div>
+            <div class="card-body">
+                @if (members.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var member in members)
+                                {
+                                    <tr>
+                                        <td>@member.UserId</td>
+                                        <td><span class="badge @GetRoleBadgeClass(member.Role)">@member.Role</span></td>
+                                        <td>
+                                            @if (member.Role != LitterRole.Owner && CanRemoveMember(member))
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveMember(member.Id)">
+                                                    Remove
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No additional members.</p>
+                }
+
+                <hr />
+                <h6>Invite a Member</h6>
+                @if (!string.IsNullOrEmpty(inviteError))
+                {
+                    <div class="alert alert-danger py-1">@inviteError</div>
+                }
+                @if (!string.IsNullOrEmpty(inviteSuccess))
+                {
+                    <div class="alert alert-success py-1">@inviteSuccess</div>
+                }
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="inviteEmail" placeholder="user@example.com" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" @bind="inviteRole">
+                            <option value="@LitterRole.Viewer">Viewer</option>
+                            @if (CanDelete)
+                            {
+                                <option value="@LitterRole.CoOwner">Co-Owner</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100" @onclick="InviteMember">Invite</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -145,6 +236,22 @@ else
     private HashSet<Guid> selectedPuppyIds = new();
     private bool loading = true;
     private bool showAddExisting = false;
+    private List<LitterMember> members = new();
+    private string inviteEmail = "";
+    private LitterRole inviteRole = LitterRole.Viewer;
+    private string? inviteError;
+    private string? inviteSuccess;
+
+    private bool CanEdit => litter?.UserRole is LitterRole.Owner or LitterRole.CoOwner;
+    private bool CanDelete => litter?.UserRole is LitterRole.Owner;
+
+    private static string GetRoleBadgeClass(LitterRole role) => role switch
+    {
+        LitterRole.Owner => "bg-primary",
+        LitterRole.CoOwner => "bg-success",
+        LitterRole.Viewer => "bg-secondary",
+        _ => "bg-secondary"
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -156,6 +263,7 @@ else
         loading = true;
         litter = await PuppyApi.GetLitterByIdAsync(LitterId);
         litterPuppies = await PuppyApi.GetPuppiesByLitterIdAsync(LitterId);
+        members = await PuppyApi.GetLitterMembersAsync(LitterId);
         loading = false;
     }
 
@@ -225,6 +333,46 @@ else
     private void EditLitter()
     {
         Navigation.NavigateTo($"/litters/edit/{LitterId}");
+    }
+
+    private bool CanRemoveMember(LitterMember member)
+    {
+        if (litter?.UserRole == LitterRole.Owner)
+            return member.Role != LitterRole.Owner;
+        if (litter?.UserRole == LitterRole.CoOwner)
+            return member.Role == LitterRole.Viewer;
+        return false;
+    }
+
+    private async Task InviteMember()
+    {
+        inviteError = null;
+        inviteSuccess = null;
+
+        if (string.IsNullOrWhiteSpace(inviteEmail))
+        {
+            inviteError = "Please enter an email address.";
+            return;
+        }
+
+        var result = await PuppyApi.AddLitterMemberAsync(LitterId, inviteEmail.Trim(), inviteRole);
+        if (result != null)
+        {
+            inviteSuccess = $"{inviteEmail} has been added as {inviteRole}.";
+            inviteEmail = "";
+            inviteRole = LitterRole.Viewer;
+            members = await PuppyApi.GetLitterMembersAsync(LitterId);
+        }
+        else
+        {
+            inviteError = "Unable to add member. Check that the email is not already a member and you have permission.";
+        }
+    }
+
+    private async Task RemoveMember(Guid memberId)
+    {
+        await PuppyApi.RemoveLitterMemberAsync(LitterId, memberId);
+        members = await PuppyApi.GetLitterMembersAsync(LitterId);
     }
 
     private void GoBack()

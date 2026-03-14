@@ -7,6 +7,7 @@ public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContex
 {
     public DbSet<Puppy> Puppies => Set<Puppy>();
     public DbSet<Litter> Litters => Set<Litter>();
+    public DbSet<LitterMember> LitterMembers => Set<LitterMember>();
     public DbSet<WeightEntry> WeightEntries => Set<WeightEntry>();
     public DbSet<ShotRecord> ShotRecords => Set<ShotRecord>();
     public DbSet<PuppyPhoto> PuppyPhotos => Set<PuppyPhoto>();
@@ -37,7 +38,9 @@ public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContex
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.Ignore(p => p.ShotRecords);
+            entity.Property(p => p.OwnerId).HasMaxLength(256);
             entity.HasIndex(p => p.LitterId);
+            entity.HasIndex(p => p.OwnerId);
         });
 
         modelBuilder.Entity<Litter>(entity =>
@@ -53,6 +56,20 @@ public class PuppyDbContext(DbContextOptions<PuppyDbContext> options) : DbContex
                 .OnDelete(DeleteBehavior.SetNull);
 
             entity.Ignore(l => l.PuppyCount);
+            entity.Ignore(l => l.UserRole);
+        });
+
+        modelBuilder.Entity<LitterMember>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.UserId).IsRequired().HasMaxLength(256);
+            entity.HasIndex(m => new { m.LitterId, m.UserId }).IsUnique();
+            entity.HasIndex(m => m.UserId);
+
+            entity.HasOne<Litter>()
+                .WithMany()
+                .HasForeignKey(m => m.LitterId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<WeightEntry>(entity =>
