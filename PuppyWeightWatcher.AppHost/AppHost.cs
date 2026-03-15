@@ -1,8 +1,11 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var sqlServer = builder.AddSqlServer("sql")
-    .WithLifetime(ContainerLifetime.Persistent)
-    .WithDataVolume("sqldata");
+var sqlServer = builder.AddAzureSqlServer("sql")
+    .RunAsContainer(container =>
+    {
+        container.WithLifetime(ContainerLifetime.Persistent)
+            .WithDataVolume("sqldata");
+    });
 
 var puppyDb = sqlServer.AddDatabase("puppydb");
 var identityDb = sqlServer.AddDatabase("identitydb");
