@@ -38,50 +38,66 @@ else
 {
     @if (viewMode == "card")
     {
-        <div class="row">
-            @foreach (var puppy in puppies)
-            {
-                <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-header" style="background-color: @GetColorValue(puppy.CollarColor); color: @GetTextColor(puppy.CollarColor);">
-                            <h5 class="mb-0">
-                                @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
-                            </h5>
-                        </div>
-                        @if (profilePhotos.TryGetValue(puppy.Id, out var profilePhoto))
-                        {
-                            <img src="data:@profilePhoto.ContentType;base64,@profilePhoto.Base64Data"
-                                 alt="@(puppy.Name ?? puppy.CollarColor)"
-                                 class="card-img-top" style="height: 200px; object-fit: cover;" />
-                        }
-                        <div class="card-body">
-                            <p class="card-text">
-                                <strong>Collar Color:</strong> @puppy.CollarColor<br />
-                                @if (!string.IsNullOrEmpty(puppy.Breed))
-                                {
-                                    <span><strong>Breed:</strong> @puppy.Breed<br /></span>
-                                }
-                                @if (!string.IsNullOrEmpty(puppy.Gender))
-                                {
-                                    <span><strong>Gender:</strong> @puppy.Gender<br /></span>
-                                }
-                                <strong>Date of Birth:</strong> @puppy.DateOfBirth.ToString("MM/dd/yyyy")<br />
-                                <strong>Age:</strong> @CalculateAge(puppy.DateOfBirth)<br />
-                                <strong>Shots:</strong> @puppy.ShotRecords.Count
-                            </p>
-                        </div>
-                        <div class="card-footer">
-                            <button class="btn btn-sm btn-primary" @onclick="() => NavigateToDetails(puppy.Id)">
-                                View Details
-                            </button>
-                            <button class="btn btn-sm btn-danger float-end" @onclick="() => DeletePuppy(puppy.Id)">
-                                Delete
-                            </button>
-                        </div>
-                    </div>
+        @foreach (var group in groupedPuppies)
+        {
+            <div class="mb-4">
+                <div class="d-flex align-items-center mb-2">
+                    <h5 class="mb-0 text-muted">
+                        @group.GroupName
+                        <span class="badge bg-secondary ms-2">@group.Puppies.Count</span>
+                    </h5>
+                    @if (group.LitterId.HasValue)
+                    {
+                        <a href="/litters/@group.LitterId" class="btn btn-sm btn-outline-info ms-2">View Litter</a>
+                    }
                 </div>
-            }
-        </div>
+                <hr class="mt-1" />
+                <div class="row">
+                    @foreach (var puppy in group.Puppies)
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header" style="background-color: @GetColorValue(puppy.CollarColor); color: @GetTextColor(puppy.CollarColor);">
+                                    <h5 class="mb-0">
+                                        @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
+                                    </h5>
+                                </div>
+                                @if (profilePhotos.TryGetValue(puppy.Id, out var profilePhoto))
+                                {
+                                    <img src="data:@profilePhoto.ContentType;base64,@profilePhoto.Base64Data"
+                                         alt="@(puppy.Name ?? puppy.CollarColor)"
+                                         class="card-img-top" style="height: 200px; object-fit: cover;" />
+                                }
+                                <div class="card-body">
+                                    <p class="card-text">
+                                        <strong>Collar Color:</strong> @puppy.CollarColor<br />
+                                        @if (!string.IsNullOrEmpty(puppy.Breed))
+                                        {
+                                            <span><strong>Breed:</strong> @puppy.Breed<br /></span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(puppy.Gender))
+                                        {
+                                            <span><strong>Gender:</strong> @puppy.Gender<br /></span>
+                                        }
+                                        <strong>Date of Birth:</strong> @puppy.DateOfBirth.ToString("MM/dd/yyyy")<br />
+                                        <strong>Age:</strong> @CalculateAge(puppy.DateOfBirth)<br />
+                                        <strong>Shots:</strong> @puppy.ShotRecords.Count
+                                    </p>
+                                </div>
+                                <div class="card-footer">
+                                    <button class="btn btn-sm btn-primary" @onclick="() => NavigateToDetails(puppy.Id)">
+                                        View Details
+                                    </button>
+                                    <button class="btn btn-sm btn-danger float-end" @onclick="() => DeletePuppy(puppy.Id)">
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
     }
     else
     {
@@ -100,47 +116,61 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var puppy in puppies)
+                    @foreach (var group in groupedPuppies)
                     {
-                        var stats = puppyStats.GetValueOrDefault(puppy.Id);
-                        <tr style="cursor: pointer;" @onclick="() => NavigateToDetails(puppy.Id)">
-                            <td>
-                                <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color: @GetColorValue(puppy.CollarColor); border: 1px solid #ccc;" title="@puppy.CollarColor"></span>
-                            </td>
-                            <td class="fw-semibold">
-                                @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
-                            </td>
-                            <td>@(string.IsNullOrEmpty(puppy.Breed) ? "—" : puppy.Breed)</td>
-                            <td>@(string.IsNullOrEmpty(puppy.Gender) ? "—" : puppy.Gender)</td>
-                            <td>@CalculateAge(puppy.DateOfBirth)</td>
-                            <td>
-                                @if (stats?.CurrentWeight != null)
+                        <tr class="table-secondary">
+                            <td colspan="7" class="fw-semibold">
+                                @group.GroupName
+                                <span class="badge bg-secondary ms-1">@group.Puppies.Count</span>
+                                @if (group.LitterId.HasValue)
                                 {
-                                    @($"{stats.CurrentWeight.Value:F2} {stats.CurrentWeightUnit}")
-                                }
-                                else
-                                {
-                                    <span class="text-muted">—</span>
+                                    <a href="/litters/@group.LitterId" class="btn btn-sm btn-outline-info ms-2 py-0">View Litter</a>
                                 }
                             </td>
-                            <td>
-                                @if (stats?.DayOverDayPercentChange != null)
-                                {
-                                    <span class="@(stats.DayOverDayPercentChange >= 0 ? "text-success" : "text-danger")">
-                                        @(stats.DayOverDayPercentChange >= 0 ? "+" : "")@stats.DayOverDayPercentChange.Value.ToString("F1")%
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">—</span>
-                                }
-                            </td>
-                            <td @onclick:stopPropagation="true">
-                                <button class="btn btn-sm btn-danger" @onclick="() => DeletePuppy(puppy.Id)">
-                                    Delete
-                                </button>
-                            </td>
+                            <td></td>
                         </tr>
+                        @foreach (var puppy in group.Puppies)
+                        {
+                            var stats = puppyStats.GetValueOrDefault(puppy.Id);
+                            <tr style="cursor: pointer;" @onclick="() => NavigateToDetails(puppy.Id)">
+                                <td>
+                                    <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color: @GetColorValue(puppy.CollarColor); border: 1px solid #ccc;" title="@puppy.CollarColor"></span>
+                                </td>
+                                <td class="fw-semibold">
+                                    @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
+                                </td>
+                                <td>@(string.IsNullOrEmpty(puppy.Breed) ? "—" : puppy.Breed)</td>
+                                <td>@(string.IsNullOrEmpty(puppy.Gender) ? "—" : puppy.Gender)</td>
+                                <td>@CalculateAge(puppy.DateOfBirth)</td>
+                                <td>
+                                    @if (stats?.CurrentWeight != null)
+                                    {
+                                        @($"{stats.CurrentWeight.Value:F2} {stats.CurrentWeightUnit}")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (stats?.DayOverDayPercentChange != null)
+                                    {
+                                        <span class="@(stats.DayOverDayPercentChange >= 0 ? "text-success" : "text-danger")">
+                                            @(stats.DayOverDayPercentChange >= 0 ? "+" : "")@stats.DayOverDayPercentChange.Value.ToString("F1")%
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td @onclick:stopPropagation="true">
+                                    <button class="btn btn-sm btn-danger" @onclick="() => DeletePuppy(puppy.Id)">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -153,6 +183,8 @@ else
     private bool loading = true;
     private Dictionary<Guid, PuppyPhoto> profilePhotos = new();
     private Dictionary<Guid, WeightStatistics> puppyStats = new();
+    private Dictionary<Guid, string> litterNames = new();
+    private List<(Guid? LitterId, string GroupName, List<Puppy> Puppies)> groupedPuppies = new();
     private string viewMode
     {
         get => ViewPreferences.PuppyListViewMode;
@@ -175,6 +207,8 @@ else
         puppies = await PuppyApi.GetAllPuppiesAsync();
         profilePhotos.Clear();
         puppyStats.Clear();
+        litterNames.Clear();
+        groupedPuppies.Clear();
         if (puppies != null && puppies.Count > 0)
         {
             var puppyIds = puppies.Select(p => p.Id).ToList();
@@ -187,6 +221,23 @@ else
             foreach (var (id, stats) in await Task.WhenAll(statsTasks))
             {
                 if (stats != null) puppyStats[id] = stats;
+            }
+
+            var litters = await PuppyApi.GetAllLittersAsync();
+            litterNames = litters.ToDictionary(l => l.Id, l => l.Name);
+
+            var groups = puppies
+                .GroupBy(p => p.LitterId)
+                .OrderByDescending(g => g.Key.HasValue)
+                .ThenBy(g => g.Key.HasValue ? litterNames.GetValueOrDefault(g.Key.Value, "Unknown Litter") : "")
+                .ToList();
+
+            foreach (var group in groups)
+            {
+                var name = group.Key.HasValue
+                    ? litterNames.GetValueOrDefault(group.Key.Value, "Unknown Litter")
+                    : "Unassigned";
+                groupedPuppies.Add((group.Key, name, group.ToList()));
             }
         }
         loading = false;

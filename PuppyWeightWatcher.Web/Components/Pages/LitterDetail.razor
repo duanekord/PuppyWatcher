@@ -2,6 +2,8 @@
 @using PuppyWeightWatcher.Shared.Models
 @inject PuppyApiClient PuppyApi
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Litter Details</PageTitle>
@@ -149,6 +151,28 @@ else
         </div>
     </div>
 
+    @if (puppyWeights.Any())
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Litter Weight Comparison</h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn @DaysButtonClass" @onclick="SetTimeframeDays">
+                        Days
+                    </button>
+                    <button class="btn @WeeksButtonClass" @onclick="SetTimeframeWeeks">
+                        Weeks
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 350px;">
+                    <canvas id="litterWeightChart"></canvas>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (CanEdit)
     {
         <div class="card mb-4">
@@ -242,6 +266,10 @@ else
     private string? inviteError;
     private string? inviteSuccess;
 
+    private Dictionary<Guid, List<WeightEntry>> puppyWeights = new();
+    private string chartTimeframe = "days";
+    private bool chartRendered = false;
+
     private bool CanEdit => litter?.UserRole is LitterRole.Owner or LitterRole.CoOwner;
     private bool CanDelete => litter?.UserRole is LitterRole.Owner;
 
@@ -261,9 +289,26 @@ else
     private async Task LoadData()
     {
         loading = true;
+        chartRendered = false;
         litter = await PuppyApi.GetLitterByIdAsync(LitterId);
         litterPuppies = await PuppyApi.GetPuppiesByLitterIdAsync(LitterId);
         members = await PuppyApi.GetLitterMembersAsync(LitterId);
+
+        puppyWeights.Clear();
+        if (litterPuppies.Any())
+        {
+            var weightTasks = litterPuppies.Select(async p =>
+            {
+                var weights = await PuppyApi.GetWeightEntriesAsync(p.Id);
+                return (p.Id, weights);
+            });
+            foreach (var (id, weights) in await Task.WhenAll(weightTasks))
+            {
+                if (weights.Any())
+                    puppyWeights[id] = weights;
+            }
+        }
+
         loading = false;
     }
 
@@ -378,5 +423,120 @@ else
     private void GoBack()
     {
         Navigation.NavigateTo("/litters");
+    }
+
+    private string DaysButtonClass => chartTimeframe == "days" ? "btn-light" : "btn-outline-light";
+    private string WeeksButtonClass => chartTimeframe == "weeks" ? "btn-light" : "btn-outline-light";
+    private async Task SetTimeframeDays() => await SetTimeframe("days");
+    private async Task SetTimeframeWeeks() => await SetTimeframe("weeks");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (puppyWeights.Any() && !chartRendered)
+        {
+            chartRendered = true;
+            await RenderChart();
+        }
+    }
+
+    private async Task SetTimeframe(string timeframe)
+    {
+        chartTimeframe = timeframe;
+        await RenderChart();
+    }
+
+    private async Task RenderChart()
+    {
+        if (!puppyWeights.Any()) return;
+
+        var allDates = puppyWeights.Values
+            .SelectMany(w => w.Select(e => e.Date.Date))
+            .Distinct()
+            .OrderBy(d => d)
+            .ToList();
+
+        string[] labels;
+        var datasets = new List<object>();
+        var unit = puppyWeights.Values.First().Last().Unit.ToString();
+
+        if (chartTimeframe == "weeks")
+        {
+            var weekKeys = allDates
+                .Select(d =>
+                {
+                    var cal = System.Globalization.CultureInfo.CurrentCulture.Calendar;
+                    var week = cal.GetWeekOfYear(d, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday);
+                    return new { d.Year, Week = week };
+                })
+                .Distinct()
+                .OrderBy(k => k.Year).ThenBy(k => k.Week)
+                .ToList();
+
+            labels = weekKeys.Select(k => $"Wk {k.Week}, {k.Year}").ToArray();
+
+            foreach (var puppy in litterPuppies)
+            {
+                if (!puppyWeights.TryGetValue(puppy.Id, out var weights)) continue;
+
+                var grouped = weights
+                    .GroupBy(w =>
+                    {
+                        var cal = System.Globalization.CultureInfo.CurrentCulture.Calendar;
+                        var week = cal.GetWeekOfYear(w.Date, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday);
+                        return new { w.Date.Year, Week = week };
+                    })
+                    .ToDictionary(g => g.Key, g => g.Average(w => w.WeightValue));
+
+                var data = weekKeys.Select(k => grouped.TryGetValue(k, out var v) ? (double?)v : null).ToArray();
+                var name = string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name;
+                datasets.Add(new { name, color = GetColorValue(puppy.CollarColor), unit, data });
+            }
+        }
+        else
+        {
+            labels = allDates.Select(d => d.ToString("MM/dd")).ToArray();
+
+            foreach (var puppy in litterPuppies)
+            {
+                if (!puppyWeights.TryGetValue(puppy.Id, out var weights)) continue;
+
+                var weightByDate = weights.ToDictionary(w => w.Date.Date, w => w.WeightValue);
+                var data = allDates.Select(d => weightByDate.TryGetValue(d, out var v) ? (double?)v : null).ToArray();
+                var name = string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name;
+                datasets.Add(new { name, color = GetColorValue(puppy.CollarColor), unit, data });
+            }
+        }
+
+        await JS.InvokeVoidAsync("weightChart.renderMulti", "litterWeightChart", labels, datasets);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("weightChart.destroyMulti");
+        }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    private static string GetColorValue(string collarColor)
+    {
+        return collarColor.ToLower() switch
+        {
+            "red" => "#dc3545",
+            "blue" => "#0d6efd",
+            "green" => "#198754",
+            "light green" => "#90ee90",
+            "yellow" => "#ffc107",
+            "purple" => "#6f42c1",
+            "pink" => "#d63384",
+            "orange" => "#fd7e14",
+            "black" => "#212529",
+            "white" => "#6c757d",
+            "brown" => "#795548",
+            "gray" or "grey" => "#adb5bd",
+            _ => "#6c757d"
+        };
     }
 }
