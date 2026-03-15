@@ -53,14 +53,14 @@ module sql 'sql/sql.module.bicep' = {
   name: 'sql'
   scope: rg
   params: {
-    location: location
+    location: 'centralus'
   }
 }
 module sql_roles 'sql-roles/sql-roles.module.bicep' = {
   name: 'sql-roles'
   scope: rg
   params: {
-    location: location
+    location: 'centralus'
     principalId: resources.outputs.MANAGED_IDENTITY_PRINCIPAL_ID
     principalName: resources.outputs.MANAGED_IDENTITY_NAME
     principalType: 'ServicePrincipal'
