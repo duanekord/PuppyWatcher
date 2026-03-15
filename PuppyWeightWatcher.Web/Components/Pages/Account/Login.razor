@@ -50,6 +50,18 @@
             <div class="d-grid gap-2">
                 @foreach (var provider in externalLogins)
                 {
+                    @if (provider.Name == "Google")
+                    {
+                        <div class="text-center">
+                            <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=/" class="google-login-btn">
+                                <img src="images/google-logo.svg" alt="" />
+                                Sign in with Google
+                            </a>
+                        </div>
+                    }
+                }
+                @foreach (var provider in externalLogins)
+                {
                     @if (provider.Name == "Microsoft")
                     {
                         <div class="text-center">
@@ -58,7 +70,7 @@
                             </a>
                         </div>
                     }
-                    else
+                    else if (provider.Name != "Google")
                     {
                         <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=/" class="btn btn-outline-secondary">
                             @provider.DisplayName
