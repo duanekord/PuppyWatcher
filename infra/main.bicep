@@ -60,7 +60,7 @@ module sql_roles 'sql-roles/sql-roles.module.bicep' = {
   name: 'sql-roles'
   scope: rg
   params: {
-    location: 'centralus'
+    location: location
     principalId: resources.outputs.MANAGED_IDENTITY_PRINCIPAL_ID
     principalName: resources.outputs.MANAGED_IDENTITY_NAME
     principalType: 'ServicePrincipal'
