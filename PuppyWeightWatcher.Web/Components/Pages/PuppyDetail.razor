@@ -3,6 +3,8 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject PuppyApiClient PuppyApi
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Puppy Details</PageTitle>
@@ -92,6 +94,36 @@ else
                     else
                     {
                         <p class="text-muted">No weight data recorded yet.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Weight Trend</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn @DaysButtonClass" @onclick="SetTimeframeDays">
+                            Days
+                        </button>
+                        <button class="btn @WeeksButtonClass" @onclick="SetTimeframeWeeks">
+                            Weeks
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (weights != null && weights.Any())
+                    {
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="weightChart"></canvas>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Add weight entries to see the trend chart.</p>
                     }
                 </div>
             </div>
@@ -416,14 +448,33 @@ else
     private string newShotAdministeredBy = string.Empty;
     private string newShotNotes = string.Empty;
 
+    private string chartTimeframe = "days";
+    private bool chartRendered = false;
+
+    private string DaysButtonClass => chartTimeframe == "days" ? "btn-light" : "btn-outline-light";
+    private string WeeksButtonClass => chartTimeframe == "weeks" ? "btn-light" : "btn-outline-light";
+
+    private async Task SetTimeframeDays() => await SetTimeframe("days");
+    private async Task SetTimeframeWeeks() => await SetTimeframe("weeks");
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (weights != null && weights.Any() && !chartRendered)
+        {
+            chartRendered = true;
+            await RenderChart();
+        }
+    }
+
     private async Task LoadData()
     {
         loading = true;
+        chartRendered = false;
         puppy = await PuppyApi.GetPuppyByIdAsync(PuppyId);
         if (puppy != null)
         {
@@ -543,6 +594,53 @@ else
     {
         await PuppyApi.SetProfilePhotoAsync(PuppyId, photoId);
         await LoadData();
+    }
+
+    private async Task SetTimeframe(string timeframe)
+    {
+        chartTimeframe = timeframe;
+        await RenderChart();
+    }
+
+    private async Task RenderChart()
+    {
+        if (weights == null || !weights.Any()) return;
+
+        var sorted = weights.OrderBy(w => w.Date).ToList();
+        string[] labels;
+        double[] data;
+        var unit = sorted.Last().Unit.ToString();
+
+        if (chartTimeframe == "weeks")
+        {
+            var grouped = sorted
+                .GroupBy(w => {
+                    var cal = System.Globalization.CultureInfo.CurrentCulture.Calendar;
+                    var week = cal.GetWeekOfYear(w.Date, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday);
+                    return new { w.Date.Year, Week = week };
+                })
+                .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Week)
+                .ToList();
+
+            labels = grouped.Select(g => $"Wk {g.Key.Week}, {g.Key.Year}").ToArray();
+            data = grouped.Select(g => g.Average(w => w.WeightValue)).ToArray();
+        }
+        else
+        {
+            labels = sorted.Select(w => w.Date.ToString("MM/dd")).ToArray();
+            data = sorted.Select(w => w.WeightValue).ToArray();
+        }
+
+        await JS.InvokeVoidAsync("weightChart.render", "weightChart", labels, data, unit);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("weightChart.destroy");
+        }
+        catch (JSDisconnectedException) { }
     }
 
     private void GoBack()
