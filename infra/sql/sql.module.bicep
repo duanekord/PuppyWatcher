@@ -1,12 +1,9 @@
 @description('The location for the resource(s) to be deployed.')
-param location string = 'centralus'
-
-@description('The location for the SQL admin managed identity. Must match the existing identity location if already deployed.')
-param managedIdentityLocation string = resourceGroup().location
+param location string = resourceGroup().location
 
 resource sqlServerAdminManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' = {
   name: take('sql-admin-${uniqueString(resourceGroup().id)}', 63)
-  location: managedIdentityLocation
+  location: location
 }
 
 resource sql 'Microsoft.Sql/servers@2023-08-01' = {

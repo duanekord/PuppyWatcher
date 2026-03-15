@@ -53,7 +53,7 @@ module sql 'sql/sql.module.bicep' = {
   name: 'sql'
   scope: rg
   params: {
-    location: 'centralus'
+    location: location
   }
 }
 module sql_roles 'sql-roles/sql-roles.module.bicep' = {

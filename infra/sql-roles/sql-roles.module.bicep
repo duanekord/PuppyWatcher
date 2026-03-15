@@ -1,5 +1,5 @@
 @description('The location for the resource(s) to be deployed.')
-param location string = 'centralus'
+param location string = resourceGroup().location
 
 param sql_outputs_name string
 
