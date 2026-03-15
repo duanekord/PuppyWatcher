@@ -12,16 +12,6 @@ param location string
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
-@description('The type of principal to assign application roles')
-param principalType string = 'ServicePrincipal'
-
-@metadata({azd: {
-  type: 'generate'
-  config: {length:22,minLower:1,minUpper:1,minNumeric:1}
-  }
-})
-@secure()
-param sql_password string
 
 var tags = {
   'azd-env-name': environmentName
@@ -39,10 +29,45 @@ module resources 'resources.bicep' = {
     location: location
     tags: tags
     principalId: principalId
-    principalType: principalType
   }
 }
 
+module keyvault 'keyvault/keyvault.module.bicep' = {
+  name: 'keyvault'
+  scope: rg
+  params: {
+    location: location
+  }
+}
+module keyvault_roles 'keyvault-roles/keyvault-roles.module.bicep' = {
+  name: 'keyvault-roles'
+  scope: rg
+  params: {
+    keyvault_outputs_name: keyvault.outputs.name
+    location: location
+    principalId: resources.outputs.MANAGED_IDENTITY_PRINCIPAL_ID
+    principalType: 'ServicePrincipal'
+  }
+}
+module sql 'sql/sql.module.bicep' = {
+  name: 'sql'
+  scope: rg
+  params: {
+    location: location
+  }
+}
+module sql_roles 'sql-roles/sql-roles.module.bicep' = {
+  name: 'sql-roles'
+  scope: rg
+  params: {
+    location: location
+    principalId: resources.outputs.MANAGED_IDENTITY_PRINCIPAL_ID
+    principalName: resources.outputs.MANAGED_IDENTITY_NAME
+    principalType: 'ServicePrincipal'
+    sql_outputs_name: sql.outputs.name
+    sql_outputs_sqlserveradminname: sql.outputs.sqlServerAdminName
+  }
+}
 
 output MANAGED_IDENTITY_CLIENT_ID string = resources.outputs.MANAGED_IDENTITY_CLIENT_ID
 output MANAGED_IDENTITY_NAME string = resources.outputs.MANAGED_IDENTITY_NAME
@@ -53,6 +78,5 @@ output AZURE_CONTAINER_REGISTRY_NAME string = resources.outputs.AZURE_CONTAINER_
 output AZURE_CONTAINER_APPS_ENVIRONMENT_NAME string = resources.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_NAME
 output AZURE_CONTAINER_APPS_ENVIRONMENT_ID string = resources.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_ID
 output AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN string = resources.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN
-output SERVICE_SQL_VOLUME_SQLDATA_NAME string = resources.outputs.SERVICE_SQL_VOLUME_SQLDATA_NAME
-output AZURE_VOLUMES_STORAGE_ACCOUNT string = resources.outputs.AZURE_VOLUMES_STORAGE_ACCOUNT
-output KEYVAULT_VAULTURI string = resources.outputs.KEYVAULT_VAULTURI
+output KEYVAULT_VAULTURI string = keyvault.outputs.vaultUri
+output SQL_SQLSERVERFQDN string = sql.outputs.sqlServerFqdn

@@ -3,9 +3,6 @@ param location string = resourceGroup().location
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
-@description('The type of principal to assign application roles')
-param principalType string = 'ServicePrincipal'
-
 
 @description('Tags that will be applied to all resources')
 param tags object = {}
@@ -48,32 +45,6 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10
   tags: tags
 }
 
-resource storageVolume 'Microsoft.Storage/storageAccounts@2022-05-01' = {
-  name: 'vol${resourceToken}'
-  location: location
-  kind: 'StorageV2'
-  sku: {
-    name: 'Standard_LRS'
-  }
-  properties: {
-    largeFileSharesState: 'Enabled'
-  }
-}
-
-resource storageVolumeFileService 'Microsoft.Storage/storageAccounts/fileServices@2022-05-01' = {
-  parent: storageVolume
-  name: 'default'
-}
-
-resource sqlSqldataFileShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2022-05-01' = {
-  parent: storageVolumeFileService
-  name: take('${toLower('sql')}-${toLower('sqldata')}', 60)
-  properties: {
-    shareQuota: 1024
-    enabledProtocols: 'SMB'
-  }
-}
-
 resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
   name: 'cae-${resourceToken}'
   location: location
@@ -101,49 +72,6 @@ resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2024-02-02-p
 
 }
 
-resource sqlSqldataStore 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
-  parent: containerAppEnvironment
-  name: take('${toLower('sql')}-${toLower('sqldata')}', 32)
-  properties: {
-    azureFile: {
-      shareName: sqlSqldataFileShare.name
-      accountName: storageVolume.name
-      accountKey: storageVolume.listKeys().keys[0].value
-      accessMode: 'ReadWrite'
-    }
-  }
-}
-
-module keyVault 'modules/key-vault.bicep' = {
-  name: 'keyvault'
-  params: {
-    name: 'keyvault'
-    location: location
-    tags: tags
-  }
-}
-
-// Allow the managed identity to read secrets from Key Vault
-resource kvMiRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid('keyvault', managedIdentity.id, subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6'))
-  scope: resourceGroup()
-  properties: {
-    principalId: managedIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
-  }
-}
-
-// Allow the deploying user to manage secrets in Key Vault
-resource kvUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
-  name: guid('keyvault', principalId, subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'))
-  scope: resourceGroup()
-  properties: {
-    principalId: principalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
-  }
-}
-
 output MANAGED_IDENTITY_CLIENT_ID string = managedIdentity.properties.clientId
 output MANAGED_IDENTITY_NAME string = managedIdentity.name
 output MANAGED_IDENTITY_PRINCIPAL_ID string = managedIdentity.properties.principalId
@@ -155,6 +83,3 @@ output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.name
 output AZURE_CONTAINER_APPS_ENVIRONMENT_NAME string = containerAppEnvironment.name
 output AZURE_CONTAINER_APPS_ENVIRONMENT_ID string = containerAppEnvironment.id
 output AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN string = containerAppEnvironment.properties.defaultDomain
-output SERVICE_SQL_VOLUME_SQLDATA_NAME string = sqlSqldataStore.name
-output AZURE_VOLUMES_STORAGE_ACCOUNT string = storageVolume.name
-output KEYVAULT_VAULTURI string = keyVault.outputs.keyVaultUri
