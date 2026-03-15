@@ -12,6 +12,9 @@ param location string
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
+@description('The type of principal to assign application roles')
+param principalType string = 'ServicePrincipal'
+
 @metadata({azd: {
   type: 'generate'
   config: {length:22,minLower:1,minUpper:1,minNumeric:1}
@@ -36,6 +39,7 @@ module resources 'resources.bicep' = {
     location: location
     tags: tags
     principalId: principalId
+    principalType: principalType
   }
 }
 

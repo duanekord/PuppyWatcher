@@ -3,6 +3,9 @@ param location string = resourceGroup().location
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
+@description('The type of principal to assign application roles')
+param principalType string = 'ServicePrincipal'
+
 
 @description('Tags that will be applied to all resources')
 param tags object = {}
@@ -137,7 +140,6 @@ resource kvUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-0
   scope: resourceGroup()
   properties: {
     principalId: principalId
-    principalType: 'User'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
   }
 }
