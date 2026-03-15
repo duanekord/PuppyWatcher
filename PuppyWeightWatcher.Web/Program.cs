@@ -10,9 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 // Add Azure Key Vault as a configuration source for auth secrets (only when deployed to Azure)
-if (!string.IsNullOrEmpty(builder.Configuration.GetConnectionString("keyvault")))
+var keyVaultUri = builder.Configuration.GetConnectionString("keyvault");
+if (!string.IsNullOrEmpty(keyVaultUri))
 {
-    builder.AddAzureKeyVaultClient("keyvault");
+    builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), new Azure.Identity.DefaultAzureCredential());
 }
 
 // Add Identity database via Aspire SQL Server integration
