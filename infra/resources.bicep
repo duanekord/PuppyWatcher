@@ -111,6 +111,37 @@ resource sqlSqldataStore 'Microsoft.App/managedEnvironments/storages@2023-05-01'
   }
 }
 
+module keyVault 'modules/key-vault.bicep' = {
+  name: 'keyvault'
+  params: {
+    name: 'keyvault'
+    location: location
+    tags: tags
+  }
+}
+
+// Allow the managed identity to read secrets from Key Vault
+resource kvMiRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid('keyvault', managedIdentity.id, subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6'))
+  scope: resourceGroup()
+  properties: {
+    principalId: managedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+  }
+}
+
+// Allow the deploying user to manage secrets in Key Vault
+resource kvUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
+  name: guid('keyvault', principalId, subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'))
+  scope: resourceGroup()
+  properties: {
+    principalId: principalId
+    principalType: 'User'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
+  }
+}
+
 output MANAGED_IDENTITY_CLIENT_ID string = managedIdentity.properties.clientId
 output MANAGED_IDENTITY_NAME string = managedIdentity.name
 output MANAGED_IDENTITY_PRINCIPAL_ID string = managedIdentity.properties.principalId
@@ -124,3 +155,4 @@ output AZURE_CONTAINER_APPS_ENVIRONMENT_ID string = containerAppEnvironment.id
 output AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN string = containerAppEnvironment.properties.defaultDomain
 output SERVICE_SQL_VOLUME_SQLDATA_NAME string = sqlSqldataStore.name
 output AZURE_VOLUMES_STORAGE_ACCOUNT string = storageVolume.name
+output KEYVAULT_VAULTURI string = keyVault.outputs.keyVaultUri
