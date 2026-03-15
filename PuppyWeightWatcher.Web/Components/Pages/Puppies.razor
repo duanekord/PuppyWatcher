@@ -3,16 +3,25 @@
 @using PuppyWeightWatcher.Shared.Models
 @inject PuppyApiClient PuppyApi
 @inject NavigationManager Navigation
+@inject ViewPreferencesService ViewPreferences
 @rendermode InteractiveServer
 
 <PageTitle>My Puppies</PageTitle>
 
 <h1>Puppy Tracker</h1>
 
-<div class="mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <button class="btn btn-primary" @onclick="NavigateToAddPuppy">
         <span class="oi oi-plus" aria-hidden="true"></span> Add New Puppy
     </button>
+    <div class="btn-group btn-group-sm">
+        <button class="btn @CardButtonClass" @onclick="SetCardView" title="Card View">
+            &#9638; Cards
+        </button>
+        <button class="btn @ListButtonClass" @onclick="SetListView" title="List View">
+            &#9776; List
+        </button>
+    </div>
 </div>
 
 @if (loading)
@@ -27,56 +36,133 @@ else if (puppies == null || !puppies.Any())
 }
 else
 {
-    <div class="row">
-        @foreach (var puppy in puppies)
-        {
-            <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-header" style="background-color: @GetColorValue(puppy.CollarColor); color: @GetTextColor(puppy.CollarColor);">
-                        <h5 class="mb-0">
-                            @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
-                        </h5>
-                    </div>
-                    @if (profilePhotos.TryGetValue(puppy.Id, out var profilePhoto))
-                    {
-                        <img src="data:@profilePhoto.ContentType;base64,@profilePhoto.Base64Data"
-                             alt="@(puppy.Name ?? puppy.CollarColor)"
-                             class="card-img-top" style="height: 200px; object-fit: cover;" />
-                    }
-                    <div class="card-body">
-                        <p class="card-text">
-                            <strong>Collar Color:</strong> @puppy.CollarColor<br />
-                            @if (!string.IsNullOrEmpty(puppy.Breed))
-                            {
-                                <span><strong>Breed:</strong> @puppy.Breed<br /></span>
-                            }
-                            @if (!string.IsNullOrEmpty(puppy.Gender))
-                            {
-                                <span><strong>Gender:</strong> @puppy.Gender<br /></span>
-                            }
-                            <strong>Date of Birth:</strong> @puppy.DateOfBirth.ToString("MM/dd/yyyy")<br />
-                            <strong>Age:</strong> @CalculateAge(puppy.DateOfBirth)<br />
-                            <strong>Shots:</strong> @puppy.ShotRecords.Count
-                        </p>
-                    </div>
-                    <div class="card-footer">
-                        <button class="btn btn-sm btn-primary" @onclick="() => NavigateToDetails(puppy.Id)">
-                            View Details
-                        </button>
-                        <button class="btn btn-sm btn-danger float-end" @onclick="() => DeletePuppy(puppy.Id)">
-                            Delete
-                        </button>
+    @if (viewMode == "card")
+    {
+        <div class="row">
+            @foreach (var puppy in puppies)
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header" style="background-color: @GetColorValue(puppy.CollarColor); color: @GetTextColor(puppy.CollarColor);">
+                            <h5 class="mb-0">
+                                @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
+                            </h5>
+                        </div>
+                        @if (profilePhotos.TryGetValue(puppy.Id, out var profilePhoto))
+                        {
+                            <img src="data:@profilePhoto.ContentType;base64,@profilePhoto.Base64Data"
+                                 alt="@(puppy.Name ?? puppy.CollarColor)"
+                                 class="card-img-top" style="height: 200px; object-fit: cover;" />
+                        }
+                        <div class="card-body">
+                            <p class="card-text">
+                                <strong>Collar Color:</strong> @puppy.CollarColor<br />
+                                @if (!string.IsNullOrEmpty(puppy.Breed))
+                                {
+                                    <span><strong>Breed:</strong> @puppy.Breed<br /></span>
+                                }
+                                @if (!string.IsNullOrEmpty(puppy.Gender))
+                                {
+                                    <span><strong>Gender:</strong> @puppy.Gender<br /></span>
+                                }
+                                <strong>Date of Birth:</strong> @puppy.DateOfBirth.ToString("MM/dd/yyyy")<br />
+                                <strong>Age:</strong> @CalculateAge(puppy.DateOfBirth)<br />
+                                <strong>Shots:</strong> @puppy.ShotRecords.Count
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-sm btn-primary" @onclick="() => NavigateToDetails(puppy.Id)">
+                                View Details
+                            </button>
+                            <button class="btn btn-sm btn-danger float-end" @onclick="() => DeletePuppy(puppy.Id)">
+                                Delete
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        }
-    </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 12px;"></th>
+                        <th>Name</th>
+                        <th>Breed</th>
+                        <th>Gender</th>
+                        <th>Age</th>
+                        <th>Current Weight</th>
+                        <th>% Change</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var puppy in puppies)
+                    {
+                        var stats = puppyStats.GetValueOrDefault(puppy.Id);
+                        <tr style="cursor: pointer;" @onclick="() => NavigateToDetails(puppy.Id)">
+                            <td>
+                                <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color: @GetColorValue(puppy.CollarColor); border: 1px solid #ccc;" title="@puppy.CollarColor"></span>
+                            </td>
+                            <td class="fw-semibold">
+                                @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
+                            </td>
+                            <td>@(string.IsNullOrEmpty(puppy.Breed) ? "—" : puppy.Breed)</td>
+                            <td>@(string.IsNullOrEmpty(puppy.Gender) ? "—" : puppy.Gender)</td>
+                            <td>@CalculateAge(puppy.DateOfBirth)</td>
+                            <td>
+                                @if (stats?.CurrentWeight != null)
+                                {
+                                    @($"{stats.CurrentWeight.Value:F2} {stats.CurrentWeightUnit}")
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (stats?.DayOverDayPercentChange != null)
+                                {
+                                    <span class="@(stats.DayOverDayPercentChange >= 0 ? "text-success" : "text-danger")">
+                                        @(stats.DayOverDayPercentChange >= 0 ? "+" : "")@stats.DayOverDayPercentChange.Value.ToString("F1")%
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td @onclick:stopPropagation="true">
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeletePuppy(puppy.Id)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 }
 
 @code {
     private List<Puppy>? puppies;
     private bool loading = true;
     private Dictionary<Guid, PuppyPhoto> profilePhotos = new();
+    private Dictionary<Guid, WeightStatistics> puppyStats = new();
+    private string viewMode
+    {
+        get => ViewPreferences.PuppyListViewMode;
+        set => ViewPreferences.PuppyListViewMode = value;
+    }
+
+    private string CardButtonClass => viewMode == "card" ? "btn-secondary" : "btn-outline-secondary";
+    private string ListButtonClass => viewMode == "list" ? "btn-secondary" : "btn-outline-secondary";
+    private void SetCardView() => viewMode = "card";
+    private void SetListView() => viewMode = "list";
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,10 +174,20 @@ else
         loading = true;
         puppies = await PuppyApi.GetAllPuppiesAsync();
         profilePhotos.Clear();
+        puppyStats.Clear();
         if (puppies != null && puppies.Count > 0)
         {
             var puppyIds = puppies.Select(p => p.Id).ToList();
             profilePhotos = await PuppyApi.GetProfilePhotosAsync(puppyIds);
+            var statsTasks = puppies.Select(async p =>
+            {
+                var stats = await PuppyApi.GetWeightStatisticsAsync(p.Id);
+                return (p.Id, stats);
+            });
+            foreach (var (id, stats) in await Task.WhenAll(statsTasks))
+            {
+                if (stats != null) puppyStats[id] = stats;
+            }
         }
         loading = false;
     }

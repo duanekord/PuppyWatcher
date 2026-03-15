@@ -86,6 +86,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddScoped<ViewPreferencesService>();
 builder.Services.AddOutputCache();
 
 builder.Services.AddHttpContextAccessor();
