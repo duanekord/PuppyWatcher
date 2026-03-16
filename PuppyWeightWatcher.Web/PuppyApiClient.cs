@@ -89,8 +89,12 @@ public class PuppyApiClient(HttpClient httpClient)
 
     public async Task<PuppyPhoto?> UploadPhotoAsync(Guid puppyId, Stream fileStream, string fileName, string contentType, string? caption, DateTime dateTaken, CancellationToken cancellationToken = default)
     {
+        using var memoryStream = new MemoryStream();
+        await fileStream.CopyToAsync(memoryStream, cancellationToken);
+        memoryStream.Position = 0;
+
         using var content = new MultipartFormDataContent();
-        var fileContent = new StreamContent(fileStream);
+        var fileContent = new StreamContent(memoryStream);
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
         content.Add(fileContent, "file", fileName);
 

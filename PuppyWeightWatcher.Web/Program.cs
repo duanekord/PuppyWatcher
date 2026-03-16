@@ -94,6 +94,7 @@ builder.Services.AddTransient<UserIdDelegatingHandler>();
 builder.Services.AddHttpClient<PuppyApiClient>(client =>
     {
         client.BaseAddress = new("https+http://apiservice");
+        client.Timeout = TimeSpan.FromMinutes(2);
     })
     .AddHttpMessageHandler<UserIdDelegatingHandler>();
 
