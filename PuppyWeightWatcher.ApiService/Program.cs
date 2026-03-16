@@ -149,6 +149,15 @@ app.MapDelete("/puppies/{puppyId:guid}/shots/{shotRecordId:guid}", async (Guid p
 .WithName("DeleteShotRecord");
 
 // Photo endpoints
+app.MapGet("/photos/{photoId:guid}/image", async (Guid photoId, HttpContext ctx, IPuppyService service) =>
+{
+    var photo = await service.GetPhotoAsync(photoId, GetUserId(ctx));
+    if (photo == null) return Results.NotFound();
+    var bytes = Convert.FromBase64String(photo.Base64Data);
+    return Results.File(bytes, photo.ContentType);
+})
+.WithName("GetPhotoImage");
+
 app.MapPost("/puppies/profile-photos", async ([Microsoft.AspNetCore.Mvc.FromBody] List<Guid> puppyIds, IPuppyService service) =>
 {
     var photos = await service.GetProfilePhotosByPuppyIdsAsync(puppyIds);
@@ -182,9 +191,10 @@ app.MapPost("/puppies/{puppyId:guid}/photos", async (Guid puppyId, HttpRequest r
     if (file == null || file.Length == 0)
         return Results.BadRequest("No file uploaded.");
 
-    using var memoryStream = new MemoryStream();
-    await file.CopyToAsync(memoryStream);
-    var base64 = Convert.ToBase64String(memoryStream.ToArray());
+    var bytes = new byte[file.Length];
+    await using var stream = file.OpenReadStream();
+    await stream.ReadExactlyAsync(bytes);
+    var base64 = Convert.ToBase64String(bytes);
 
     var caption = form["caption"].FirstOrDefault();
     var dateTakenStr = form["dateTaken"].FirstOrDefault();

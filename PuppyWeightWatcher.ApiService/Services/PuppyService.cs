@@ -444,6 +444,17 @@ public class PuppyService(PuppyDbContext db) : IPuppyService
         var profilePhotos = await db.PuppyPhotos
             .AsNoTracking()
             .Where(p => puppyIds.Contains(p.PuppyId) && p.IsProfilePhoto)
+            .Select(p => new PuppyPhoto
+            {
+                Id = p.Id,
+                PuppyId = p.PuppyId,
+                FileName = p.FileName,
+                ContentType = p.ContentType,
+                Caption = p.Caption,
+                DateTaken = p.DateTaken,
+                IsProfilePhoto = p.IsProfilePhoto,
+                CreatedAt = p.CreatedAt
+            })
             .ToListAsync();
         return profilePhotos.ToDictionary(p => p.PuppyId);
     }

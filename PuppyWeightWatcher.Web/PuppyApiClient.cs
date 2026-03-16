@@ -2,7 +2,7 @@ using PuppyWeightWatcher.Shared.Models;
 
 namespace PuppyWeightWatcher.Web;
 
-public class PuppyApiClient(HttpClient httpClient)
+public class PuppyApiClient(HttpClient httpClient, IHttpClientFactory httpClientFactory)
 {
     // Puppy operations
     public async Task<List<Puppy>> GetAllPuppiesAsync(CancellationToken cancellationToken = default)
@@ -75,6 +75,11 @@ public class PuppyApiClient(HttpClient httpClient)
     }
 
     // Photo operations
+    public async Task<HttpResponseMessage> GetPhotoImageAsync(Guid photoId, CancellationToken cancellationToken = default)
+    {
+        return await httpClient.GetAsync($"/photos/{photoId}/image", cancellationToken);
+    }
+
     public async Task<Dictionary<Guid, PuppyPhoto>> GetProfilePhotosAsync(List<Guid> puppyIds, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync("/puppies/profile-photos", puppyIds, cancellationToken);
@@ -89,12 +94,10 @@ public class PuppyApiClient(HttpClient httpClient)
 
     public async Task<PuppyPhoto?> UploadPhotoAsync(Guid puppyId, Stream fileStream, string fileName, string contentType, string? caption, DateTime dateTaken, CancellationToken cancellationToken = default)
     {
-        using var memoryStream = new MemoryStream();
-        await fileStream.CopyToAsync(memoryStream, cancellationToken);
-        memoryStream.Position = 0;
+        using var uploadClient = httpClientFactory.CreateClient("PuppyApiUpload");
 
         using var content = new MultipartFormDataContent();
-        var fileContent = new StreamContent(memoryStream);
+        var fileContent = new StreamContent(fileStream, bufferSize: 81920);
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
         content.Add(fileContent, "file", fileName);
 
@@ -103,7 +106,7 @@ public class PuppyApiClient(HttpClient httpClient)
 
         content.Add(new StringContent(dateTaken.ToString("o")), "dateTaken");
 
-        var response = await httpClient.PostAsync($"/puppies/{puppyId}/photos", content, cancellationToken);
+        var response = await uploadClient.PostAsync($"/puppies/{puppyId}/photos", content, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<PuppyPhoto>(cancellationToken);
     }

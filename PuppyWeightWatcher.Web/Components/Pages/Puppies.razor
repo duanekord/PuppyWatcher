@@ -62,11 +62,11 @@ else
                                         @(string.IsNullOrEmpty(puppy.Name) ? $"Puppy ({puppy.CollarColor})" : puppy.Name)
                                     </h5>
                                 </div>
-                                @if (profilePhotos.TryGetValue(puppy.Id, out var profilePhoto))
+                                @if (profilePhotoIds.TryGetValue(puppy.Id, out var photoId))
                                 {
-                                    <img src="data:@profilePhoto.ContentType;base64,@profilePhoto.Base64Data"
+                                    <img src="/api/photos/@photoId"
                                          alt="@(puppy.Name ?? puppy.CollarColor)"
-                                         class="card-img-top" style="height: 200px; object-fit: cover;" />
+                                         class="card-img-top" style="height: 200px; object-fit: cover;" loading="lazy" />
                                 }
                                 <div class="card-body">
                                     <p class="card-text">
@@ -181,7 +181,7 @@ else
 @code {
     private List<Puppy>? puppies;
     private bool loading = true;
-    private Dictionary<Guid, PuppyPhoto> profilePhotos = new();
+    private Dictionary<Guid, Guid> profilePhotoIds = new();
     private Dictionary<Guid, WeightStatistics> puppyStats = new();
     private Dictionary<Guid, string> litterNames = new();
     private List<(Guid? LitterId, string GroupName, List<Puppy> Puppies)> groupedPuppies = new();
@@ -205,14 +205,15 @@ else
     {
         loading = true;
         puppies = await PuppyApi.GetAllPuppiesAsync();
-        profilePhotos.Clear();
+        profilePhotoIds.Clear();
         puppyStats.Clear();
         litterNames.Clear();
         groupedPuppies.Clear();
         if (puppies != null && puppies.Count > 0)
         {
             var puppyIds = puppies.Select(p => p.Id).ToList();
-            profilePhotos = await PuppyApi.GetProfilePhotosAsync(puppyIds);
+            var profilePhotos = await PuppyApi.GetProfilePhotosAsync(puppyIds);
+            profilePhotoIds = profilePhotos.ToDictionary(kv => kv.Key, kv => kv.Value.Id);
             var statsTasks = puppies.Select(async p =>
             {
                 var stats = await PuppyApi.GetWeightStatisticsAsync(p.Id);

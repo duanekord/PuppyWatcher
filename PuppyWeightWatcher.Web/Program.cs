@@ -98,6 +98,19 @@ builder.Services.AddHttpClient<PuppyApiClient>(client =>
     })
     .AddHttpMessageHandler<UserIdDelegatingHandler>();
 
+builder.Services.AddHttpClient("PuppyApiUpload", client =>
+    {
+        client.BaseAddress = new("https+http://apiservice");
+        client.Timeout = TimeSpan.FromMinutes(5);
+    })
+    .AddHttpMessageHandler<UserIdDelegatingHandler>()
+    .AddStandardResilienceHandler(options =>
+    {
+        options.Retry.MaxRetryAttempts = 0;
+        options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(5);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(5);
+    });
+
 builder.Services.AddCascadingAuthenticationState();
 
 var app = builder.Build();
@@ -160,5 +173,15 @@ app.MapPost("/Account/Logout", async (SignInManager<ApplicationUser> signInManag
 });
 
 app.MapDefaultEndpoints();
+
+// Photo image proxy - serves images from the API service so browsers can load them lazily
+app.MapGet("/api/photos/{photoId:guid}", async (Guid photoId, PuppyApiClient puppyApi) =>
+{
+    var response = await puppyApi.GetPhotoImageAsync(photoId);
+    if (!response.IsSuccessStatusCode) return Results.NotFound();
+    var bytes = await response.Content.ReadAsByteArrayAsync();
+    var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+    return Results.File(bytes, contentType);
+});
 
 app.Run();
