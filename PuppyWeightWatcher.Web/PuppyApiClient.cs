@@ -96,8 +96,12 @@ public class PuppyApiClient(HttpClient httpClient, IHttpClientFactory httpClient
     {
         using var uploadClient = httpClientFactory.CreateClient("PuppyApiUpload");
 
+        using var memoryStream = new MemoryStream();
+        await fileStream.CopyToAsync(memoryStream, cancellationToken);
+        memoryStream.Position = 0;
+
         using var content = new MultipartFormDataContent();
-        var fileContent = new StreamContent(fileStream, bufferSize: 81920);
+        var fileContent = new StreamContent(memoryStream, bufferSize: 81920);
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
         content.Add(fileContent, "file", fileName);
 
