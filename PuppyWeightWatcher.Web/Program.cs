@@ -106,9 +106,11 @@ builder.Services.AddHttpClient("PuppyApiUpload", client =>
     .AddHttpMessageHandler<UserIdDelegatingHandler>()
     .AddStandardResilienceHandler(options =>
     {
-        options.Retry.MaxRetryAttempts = 0;
+        options.Retry.MaxRetryAttempts = 1;
+        options.Retry.ShouldHandle = _ => ValueTask.FromResult(false);
         options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(5);
         options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(5);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(11);
     });
 
 builder.Services.AddCascadingAuthenticationState();
