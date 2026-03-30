@@ -35,7 +35,47 @@ else
                     <button class="btn btn-sm btn-light" @onclick="EditPuppy">Edit</button>
                 </div>
                 <div class="card-body">
-                    <p><strong>Collar Color:</strong> @puppy.CollarColor</p>
+                    <p>
+                        <strong>Collar Color:</strong>
+                        @if (editingColor)
+                        {
+                            <span class="d-inline-flex align-items-center gap-2">
+                                <input type="text" class="form-control form-control-sm d-inline-block" style="width: 150px;" @bind="editCollarColor" placeholder="Enter color" />
+                                <button class="btn btn-sm btn-success" @onclick="SaveCollarColor" disabled="@savingColor">
+                                    @if (savingColor)
+                                    {
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    }
+                                    else
+                                    {
+                                        <text>Save</text>
+                                    }
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="CancelColorEdit" disabled="@savingColor">Cancel</button>
+                            </span>
+                            <div class="mt-2">
+                                <small class="text-muted">Quick pick:</small>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    @foreach (var color in CommonColors)
+                                    {
+                                        <button class="btn btn-sm" style="background-color: @GetColorValue(color); color: @GetTextColor(color); font-size: 0.75rem; padding: 2px 8px;"
+                                                @onclick="() => editCollarColor = color">
+                                            @color
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(colorSaveError))
+                            {
+                                <div class="alert alert-danger mt-2 py-1 px-2 mb-0">@colorSaveError</div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="badge" style="background-color: @GetColorValue(puppy.CollarColor); color: @GetTextColor(puppy.CollarColor);">@puppy.CollarColor</span>
+                            <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="StartColorEdit">Change</button>
+                        }
+                    </p>
                     <p><strong>Name:</strong> @(string.IsNullOrEmpty(puppy.Name) ? "Not named yet" : puppy.Name)</p>
                     <p><strong>Breed:</strong> @(string.IsNullOrEmpty(puppy.Breed) ? "Unknown" : puppy.Breed)</p>
                     <p><strong>Gender:</strong> @(string.IsNullOrEmpty(puppy.Gender) ? "Unknown" : puppy.Gender)</p>
@@ -438,6 +478,17 @@ else
     private string photoUploadError = string.Empty;
     private PuppyPhoto? viewingPhoto;
 
+    private bool editingColor = false;
+    private string editCollarColor = string.Empty;
+    private bool savingColor = false;
+    private string colorSaveError = string.Empty;
+
+    private string[] CommonColors = new[]
+    {
+        "Red", "Blue", "Green", "Light Green", "Yellow", "Purple",
+        "Pink", "Orange", "Black", "White", "Brown", "Gray"
+    };
+
     private DateTime newWeightDate = DateTime.Today;
     private double newWeightValue;
     private WeightUnit newWeightUnit = WeightUnit.Grams;
@@ -647,6 +698,63 @@ else
     private void GoBack()
     {
         Navigation.NavigateTo("/puppies");
+    }
+
+    private void StartColorEdit()
+    {
+        editCollarColor = puppy!.CollarColor;
+        colorSaveError = string.Empty;
+        editingColor = true;
+    }
+
+    private void CancelColorEdit()
+    {
+        editingColor = false;
+        colorSaveError = string.Empty;
+    }
+
+    private async Task SaveCollarColor()
+    {
+        if (string.IsNullOrWhiteSpace(editCollarColor))
+        {
+            colorSaveError = "Collar color is required.";
+            return;
+        }
+
+        savingColor = true;
+        colorSaveError = string.Empty;
+
+        try
+        {
+            var updatedPuppy = new Puppy
+            {
+                CollarColor = editCollarColor.Trim(),
+                Name = puppy!.Name,
+                DateOfBirth = puppy.DateOfBirth,
+                Breed = puppy.Breed,
+                Gender = puppy.Gender,
+                LitterId = puppy.LitterId
+            };
+
+            var result = await PuppyApi.UpdatePuppyAsync(PuppyId, updatedPuppy);
+            if (result != null)
+            {
+                puppy = result;
+                editingColor = false;
+            }
+            else
+            {
+                colorSaveError = "Failed to update collar color.";
+            }
+        }
+        catch (Exception ex)
+        {
+            colorSaveError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            savingColor = false;
+        }
     }
 
     private void EditPuppy()

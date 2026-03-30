@@ -53,7 +53,7 @@
                     @if (provider.Name == "Google")
                     {
                         <div class="text-center">
-                            <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=/" class="google-login-btn">
+                            <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=@Uri.EscapeDataString(GetSafeReturnUrl())" class="google-login-btn">
                                 <img src="images/google-logo.svg" alt="" />
                                 Sign in with Google
                             </a>
@@ -65,14 +65,14 @@
                     @if (provider.Name == "Microsoft")
                     {
                         <div class="text-center">
-                            <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=/" class="ms-login-btn">
+                            <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=@Uri.EscapeDataString(GetSafeReturnUrl())" class="ms-login-btn">
                                 <img src="images/microsoft-logo.svg" alt="Sign in with Microsoft" />
                             </a>
                         </div>
                     }
                     else if (provider.Name != "Google")
                     {
-                        <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=/" class="btn btn-outline-secondary">
+                        <a href="/Account/ExternalLogin?provider=@provider.Name&returnUrl=@Uri.EscapeDataString(GetSafeReturnUrl())" class="btn btn-outline-secondary">
                             @provider.DisplayName
                         </a>
                     }
@@ -105,16 +105,36 @@
 
     private async Task LoginUser()
     {
-        var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+        try
+        {
+            var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
 
-        if (result.Succeeded)
-        {
-            NavigationManager.NavigateTo(ReturnUrl ?? "/", forceLoad: true);
+            if (result.Succeeded)
+            {
+                NavigationManager.NavigateTo(GetSafeReturnUrl(), forceLoad: true);
+            }
+            else if (result.IsLockedOut)
+            {
+                errorMessage = "Account locked out. Please try again later.";
+            }
+            else
+            {
+                errorMessage = "Invalid login attempt.";
+            }
         }
-        else
+        catch (Exception)
         {
-            errorMessage = "Invalid login attempt.";
+            errorMessage = "Unable to connect. Please try again in a moment.";
         }
+    }
+
+    private string GetSafeReturnUrl()
+    {
+        if (!string.IsNullOrEmpty(ReturnUrl) && Uri.TryCreate(ReturnUrl, UriKind.Relative, out _))
+        {
+            return ReturnUrl;
+        }
+        return "/";
     }
 
     private sealed class LoginModel
@@ -127,6 +147,6 @@
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
 
-        public bool RememberMe { get; set; }
+        public bool RememberMe { get; set; } = true;
     }
 }

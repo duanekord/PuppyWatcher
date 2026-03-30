@@ -118,7 +118,7 @@
 
         if (result.Succeeded)
         {
-            await SignInManager.SignInAsync(user, isPersistent: false);
+            await SignInManager.SignInAsync(user, isPersistent: true);
             NavigationManager.NavigateTo("/", forceLoad: true);
         }
         else

@@ -22,7 +22,12 @@
         }
         else
         {
-            <p>Processing external login...</p>
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>Processing external login...</p>
+            </div>
         }
     </div>
 </div>
@@ -38,7 +43,23 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var info = await SignInManager.GetExternalLoginInfoAsync();
+        const int maxRetries = 3;
+
+        ExternalLoginInfo? info = null;
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                info = await SignInManager.GetExternalLoginInfoAsync();
+                break;
+            }
+            catch (Exception ex) when (attempt < maxRetries)
+            {
+                Logger.LogWarning(ex, "GetExternalLoginInfoAsync attempt {Attempt}/{MaxRetries} failed. Retrying...", attempt, maxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(attempt * 2));
+            }
+        }
+
         if (info is null)
         {
             Logger.LogWarning("GetExternalLoginInfoAsync returned null. External cookie may be missing.");
@@ -47,15 +68,22 @@
         }
 
         // Try to sign in with existing external login
-        var result = await SignInManager.ExternalLoginSignInAsync(
-            info.LoginProvider, info.ProviderKey, isPersistent: false, bypassTwoFactor: true);
-
-        if (result.Succeeded)
+        try
         {
-            Logger.LogInformation("{Name} logged in with {LoginProvider} provider.",
-                info.Principal.Identity?.Name, info.LoginProvider);
-            RedirectTo(ReturnUrl ?? "/");
-            return;
+            var result = await SignInManager.ExternalLoginSignInAsync(
+                info.LoginProvider, info.ProviderKey, isPersistent: true, bypassTwoFactor: true);
+
+            if (result.Succeeded)
+            {
+                Logger.LogInformation("{Name} logged in with {LoginProvider} provider.",
+                    info.Principal.Identity?.Name, info.LoginProvider);
+                RedirectTo(ReturnUrl ?? "/");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "ExternalLoginSignInAsync failed for {LoginProvider}. Attempting user creation flow.", info.LoginProvider);
         }
 
         // User does not have an account — create one
@@ -66,40 +94,57 @@
             return;
         }
 
-        var user = await UserManager.FindByEmailAsync(email);
-        if (user is null)
+        try
         {
-            user = new ApplicationUser
+            var user = await UserManager.FindByEmailAsync(email);
+            if (user is null)
             {
-                UserName = email,
-                Email = email
-            };
+                user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email
+                };
 
-            var createResult = await UserManager.CreateAsync(user);
-            if (!createResult.Succeeded)
-            {
-                errorMessage = "Error creating user account: " +
-                    string.Join(", ", createResult.Errors.Select(e => e.Description));
-                return;
+                var createResult = await UserManager.CreateAsync(user);
+                if (!createResult.Succeeded)
+                {
+                    errorMessage = "Error creating user account: " +
+                        string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    return;
+                }
             }
-        }
 
-        var addLoginResult = await UserManager.AddLoginAsync(user, info);
-        if (!addLoginResult.Succeeded)
+            // Only add the login if it doesn't already exist for this user
+            var existingLogins = await UserManager.GetLoginsAsync(user);
+            if (!existingLogins.Any(l => l.LoginProvider == info.LoginProvider && l.ProviderKey == info.ProviderKey))
+            {
+                var addLoginResult = await UserManager.AddLoginAsync(user, info);
+                if (!addLoginResult.Succeeded)
+                {
+                    errorMessage = "Error adding external login: " +
+                        string.Join(", ", addLoginResult.Errors.Select(e => e.Description));
+                    return;
+                }
+            }
+
+            await SignInManager.SignInAsync(user, isPersistent: true, info.LoginProvider);
+            Logger.LogInformation("{Email} created an account using {LoginProvider} provider.",
+                email, info.LoginProvider);
+            RedirectTo(ReturnUrl ?? "/");
+        }
+        catch (Exception ex)
         {
-            errorMessage = "Error adding external login: " +
-                string.Join(", ", addLoginResult.Errors.Select(e => e.Description));
-            return;
+            Logger.LogError(ex, "Error during external login user creation for {Email}", email);
+            errorMessage = "An error occurred during login. Please try again.";
         }
-
-        await SignInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
-        Logger.LogInformation("{Email} created an account using {LoginProvider} provider.",
-            email, info.LoginProvider);
-        RedirectTo(ReturnUrl ?? "/");
     }
 
     private void RedirectTo(string url)
     {
+        if (!Uri.TryCreate(url, UriKind.Relative, out _))
+        {
+            url = "/";
+        }
         HttpContext.Response.Redirect(url);
     }
 }
