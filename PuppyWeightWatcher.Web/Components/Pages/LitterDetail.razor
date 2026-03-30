@@ -434,8 +434,13 @@ else
     {
         if (puppyWeights.Any() && !chartRendered)
         {
-            chartRendered = true;
-            await RenderChart();
+            try
+            {
+                await RenderChart();
+                chartRendered = true;
+            }
+            catch (JSDisconnectedException) { }
+            catch (InvalidOperationException) { }
         }
     }
 
